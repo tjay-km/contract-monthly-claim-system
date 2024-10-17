@@ -1,16 +1,25 @@
-﻿using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using CMCS.Models;
-using System.Collections.Generic;
 using System.Linq;
-using System.Threading.Tasks;
+using System.Security.Claims;
+
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Identity;
+using System.Collections.Generic;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 
 namespace CMCS.Controllers
 {
     public class AccountController : Controller
     {
-        public static List<User> Users = new List<User>();
+        private readonly List<User> _users;
+
+        public AccountController(List<User> users)
+        {
+            _users = users;
+        }
 
         [HttpGet]
         public IActionResult Register()
@@ -23,44 +32,51 @@ namespace CMCS.Controllers
         {
             ModelState.Clear();
 
-            if (string.IsNullOrWhiteSpace(newUser.Name))
+            // Check for required fields
+            if (string.IsNullOrWhiteSpace(newUser.Name) || string.IsNullOrWhiteSpace(newUser.EmailOrUsername) ||
+                string.IsNullOrWhiteSpace(newUser.Password) || string.IsNullOrWhiteSpace(newUser.Role))
             {
-                ModelState.AddModelError(nameof(newUser.Name), "Name is required.");
+                ModelState.AddModelError(string.Empty, "All fields are required.");
+                return View(newUser);
             }
 
+            // Validate Email or Username
             if (!IsValidUsernameOrEmail(newUser.EmailOrUsername))
             {
                 ModelState.AddModelError(nameof(newUser.EmailOrUsername), "Please enter a valid username or email address.");
             }
 
+            // Check if the password meets length requirements
             if (newUser.Password.Length < 8)
             {
                 ModelState.AddModelError(nameof(newUser.Password), "Password must be at least 8 characters long.");
             }
 
+            // Check if passwords match
             if (newUser.Password != confirmPassword)
             {
-                ModelState.AddModelError(nameof(confirmPassword), "Passwords do not match.");
-            }
-
-            var existingUser = Users.FirstOrDefault(u => u.EmailOrUsername == newUser.EmailOrUsername);
-            if (existingUser != null)
-            {
-                ModelState.AddModelError(string.Empty, "Username or Email already exists.");
-            }
-
-            if (!ModelState.IsValid)
-            {
+                ModelState.AddModelError(string.Empty, "Passwords do not match.");
                 return View(newUser);
             }
 
+            // Check if the username or email already exists
+            var existingUser = _users.FirstOrDefault(u => u.EmailOrUsername == newUser.EmailOrUsername);
+            if (existingUser != null)
+            {
+                ModelState.AddModelError(string.Empty, "Username or Email already exists.");
+                return View(newUser);
+            }
+
+            // Hash the password
             var hasher = new PasswordHasher<User>();
             newUser.Password = hasher.HashPassword(newUser, newUser.Password);
 
-            Users.Add(newUser);
+            // Add new user to the in-memory list
+            newUser.Id = _users.Count + 1;
+            _users.Add(newUser);
 
-            TempData["SuccessMessage"] = "You have successfully registered! Welcome to Contract Monthly Claim Systems. Redirecting to login page in 5 seconds...";
-            return View(newUser);
+            TempData["SuccessMessage"] = "You have successfully registered! Welcome to Contract Monthly Claim System. Redirecting to login page...";
+            return RedirectToAction("Login");
         }
 
         [HttpGet]
@@ -70,37 +86,60 @@ namespace CMCS.Controllers
         }
 
         [HttpPost]
-        public IActionResult Login(string usernameOrEmail, string password)
+        public async Task<IActionResult> Login(string usernameOrEmail, string password)
         {
-            var user = Users.FirstOrDefault(u => u.EmailOrUsername == usernameOrEmail);
+            // Find user by username or email
+            var user = _users.FirstOrDefault(u => u.EmailOrUsername == usernameOrEmail && u.Password == password);
 
             if (user == null)
             {
-                ModelState.AddModelError(string.Empty, "Invalid username/email or password.");
+                ModelState.AddModelError(string.Empty, "Invalid login attempt.");
                 return View();
             }
 
+            // Verify the password
             var hasher = new PasswordHasher<User>();
             var result = hasher.VerifyHashedPassword(user, user.Password, password);
 
             if (result == PasswordVerificationResult.Success)
             {
-                HttpContext.Session.SetString("UserRole", user.Role);
-                switch (user.Role)
+                // Create claims and sign in the user
+                var claims = new List<System.Security.Claims.Claim> // Use the full namespace here
                 {
-                    case "Lecturer":
-                        return RedirectToAction("LecturerDashboard", "Dashboard");
-                    case "ProgrammeCoordinator":
-                        return RedirectToAction("CoordinatorDashboard", "Dashboard");
-                    case "AcademicManager":
-                        return RedirectToAction("ManagerDashboard", "Dashboard");
-                    default:
-                        return RedirectToAction("Index", "Home");
-                }
+                    new System.Security.Claims.Claim(ClaimTypes.Name, user.Name),
+                    new System.Security.Claims.Claim(ClaimTypes.Email, user.EmailOrUsername),
+                    new System.Security.Claims.Claim(ClaimTypes.Role, user.Role)
+                };
+
+
+                var claimsIdentity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
+
+                await HttpContext.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, new ClaimsPrincipal(claimsIdentity));
+
+                //// Redirect based on the role of the user
+                //switch (user.Role)
+                //{
+                //    case "Lecturer":
+                //        return RedirectToAction("LecturerDashboard", "Dashboard");
+                //    case "ProgrammeCoordinator":
+                //        return RedirectToAction("CoordinatorDashboard", "Dashboard");
+                //    case "AcademicManager":
+                //        return RedirectToAction("ManagerDashboard", "Dashboard");
+                //    default:
+                //        return RedirectToAction("Index", "Home");
+                //}
+                return RedirectToAction("Index", "Dashboard");
             }
 
             ModelState.AddModelError(string.Empty, "Invalid username/email or password.");
             return View();
+        }
+
+        //[HttpPost]
+        public async Task<IActionResult> Logout()
+        {
+            await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+            return RedirectToAction("Index", "Home");
         }
 
         private bool IsValidUsernameOrEmail(string input)
@@ -110,12 +149,14 @@ namespace CMCS.Controllers
                 return false;
             }
 
+            // Validate Email
             var emailRegex = new Regex(@"^[^@\s]+@[^@\s]+\.[^@\s]+$");
             if (emailRegex.IsMatch(input))
             {
                 return true;
             }
 
+            // Validate Username (alphanumeric only)
             var usernameRegex = new Regex(@"^[a-zA-Z0-9]+$");
             return usernameRegex.IsMatch(input);
         }

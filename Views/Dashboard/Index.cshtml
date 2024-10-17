@@ -1,57 +1,112 @@
-﻿@model List<CMCS.Models.Claim>
+﻿@{
+    ViewData["Title"] = "Dashboard";
+}
 
-<h2>Contract Monthly Claim System Dashboard</h2>
+<div class="container">
+    <h1 class="mb-4">Contract Monthly Claim System Dashboard</h1>
 
-<div class="row">
-    <div class="col-md-6">
-        <h3>Recent Claims</h3>
-        <table class="table">
-            <thead>
-                <tr>
-                    <th>Lecturer</th>
-                    <th>Hours</th>
-                    <th>Rate</th>
-                    <th>Status</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var claim in Model)
-                {
+    <div class="row">
+        <div class="col-md-8">
+            <h2>Claims</h2>
+            <table class="table" id="claimsTable">
+                <thead>
                     <tr>
-                        <td>@claim.LecturerName</td>
-                        <td>@claim.HoursWorked</td>
-                        <td>@claim.HourlyRate</td>
-                        <td>@claim.Status</td>
+                        <th>Lecturer</th>
+                        <th>Hours</th>
+                        <th>Rate</th>
+                        <th>Status</th>
+                        <th>Actions</th>
                     </tr>
-                }
-            </tbody>
-        </table>
-    </div>
-    <div class="col-md-6">
-        <h3>Quick Actions</h3>
-        <a href="@Url.Action("Submit", "Claim")" class="btn btn-primary">Submit New Claim</a>
-        <a href="@Url.Action("Index", "Claim")" class="btn btn-secondary">View All Claims</a>
+                </thead>
+                <tbody>
+                </tbody>
+            </table>
+        </div>
+        <div class="col-md-4">
+            <h2>Submit New Claim</h2>
+            <form id="newClaimForm">
+                <div class="form-group">
+                    <label for="lecturerName">Lecturer Name</label>
+                    <input type="text" class="form-control" id="lecturerName" required>
+                </div>
+                <div class="form-group">
+                    <label for="hoursWorked">Hours Worked</label>
+                    <input type="number" class="form-control" id="hoursWorked" required>
+                </div>
+                <div class="form-group">
+                    <label for="hourlyRate">Hourly Rate</label>
+                    <input type="number" class="form-control" id="hourlyRate" required>
+                </div>
+                <button type="submit" class="btn btn-primary">Submit Claim</button>
+            </form>
+        </div>
     </div>
 </div>
 
-@if (ViewBag.UserRole == "Lecturer")
-{
-    <div class="col-md-6">
-        <h3>My Claims</h3>
-        <!-- Display lecturer-specific information -->
-    </div>
-}
-else if (ViewBag.UserRole == "ProgrammeCoordinator" || ViewBag.UserRole == "AcademicManager")
-{
-    <div class="col-md-6">
-        <h3>Claims to Review</h3>
-        <!-- Display claims that need review -->
-    </div>
-}
-else if (ViewBag.UserRole == "HR")
-{
-    <div class="col-md-6">
-        <h3>HR Overview</h3>
-        <!-- Display HR-specific information -->
-    </div>
+@section Scripts {
+    <script>
+        $(document).ready(function () {
+            loadClaims();
+
+            $('#newClaimForm').submit(function (e) {
+                e.preventDefault();
+                submitClaim();
+            });
+        });
+
+        function loadClaims() {
+            $.get('/Dashboard/GetClaims', function (claims) {
+                var tbody = $('#claimsTable tbody');
+                tbody.empty();
+                claims.forEach(function (claim) {
+                    tbody.append(`
+                                <tr>
+                                    <td>${claim.lecturerName}</td>
+                                    <td>${claim.hoursWorked}</td>
+                                    <td>${claim.hourlyRate}</td>
+                                    <td>${claim.status}</td>
+                                    <td>
+                                        <button onclick="updateStatus(${claim.id}, 'Approved')" class="btn btn-sm btn-success">Approve</button>
+                                        <button onclick="updateStatus(${claim.id}, 'Rejected')" class="btn btn-sm btn-danger">Reject</button>
+                                    </td>
+                                </tr>
+                            `);
+                });
+            });
+        }
+
+        function submitClaim() {
+            var claim = {
+                lecturerName: $('#lecturerName').val(),
+                hoursWorked: parseFloat($('#hoursWorked').val()),
+                hourlyRate: parseFloat($('#hourlyRate').val())
+            };
+
+            $.ajax({
+                url: '/Dashboard/SubmitClaim',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify(claim),
+                success: function (result) {
+                    alert('Claim submitted successfully!');
+                    $('#newClaimForm')[0].reset();
+                    loadClaims();
+                },
+                error: function () {
+                    alert('Error submitting claim');
+                }
+            });
+        }
+
+        function updateStatus(id, status) {
+            $.post('/Dashboard/UpdateClaimStatus', { id: id, status: status }, function (result) {
+                if (result.success) {
+                    alert(result.message);
+                    loadClaims();
+                } else {
+                    alert('Error updating claim status');
+                }
+            });
+        }
+    </script>
 }

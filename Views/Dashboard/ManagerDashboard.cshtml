@@ -1,0 +1,48 @@
+﻿@model List<CMCS.Models.Claim>
+
+<h2>Claims Dashboard</h2>
+
+<table class="min-w-full bg-white">
+    <thead>
+        <tr>
+            <th class="py-2 px-4 border-b">Lecturer</th>
+            <th class="py-2 px-4 border-b">Hours</th>
+            <th class="py-2 px-4 border-b">Rate</th>
+            <th class="py-2 px-4 border-b">Status</th>
+            <th class="py-2 px-4 border-b">Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var claim in Model)
+        {
+            <tr>
+                <td class="py-2 px-4 border-b">@claim.LecturerName</td>
+                <td class="py-2 px-4 border-b">@claim.HoursWorked</td>
+                <td class="py-2 px-4 border-b">@claim.HourlyRate</td>
+                <td class="py-2 px-4 border-b">@claim.Status</td>
+                <td class="py-2 px-4 border-b">
+                    @if (claim.Status == "Pending")
+                    {
+                        <button onclick="updateStatus(@claim.Id, 'Approved')" class="bg-green-500 hover:bg-green-700 text-white font-bold py-1 px-2 rounded">Approve</button>
+                        <button onclick="updateStatus(@claim.Id, 'Rejected')" class="bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-2 rounded">Reject</button>
+                    }
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+@section Scripts {
+    <script>
+        function updateStatus(id, status) {
+            $.post('/Dashboard/UpdateClaimStatus', { id: id, status: status }, function(result) {
+                if (result.success) {
+                    alert(result.message);
+                    location.reload();
+                } else {
+                    alert('Error updating claim status');
+                }
+            });
+        }
+    </script>
+}

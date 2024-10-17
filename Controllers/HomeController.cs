@@ -15,12 +15,13 @@ public class HomeController : Controller
 
     public IActionResult Index()
     {
+        ViewData["Title"] = "Home Page";
         return View();
     }
 
-    // GET: /Features
     public IActionResult Features()
     {
+        ViewData["Title"] = "Features";
         return View();
     }
 
