@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>CMCS</title>
+</head>
+<body>
+    <header>
+        <nav>
+            <ul>
+                @if (TempData["Username"] != null)
+                {
+                    <li>Welcome, @TempData["Username"]</li>
+                    <li><a asp-controller="Claim" asp-action="Dashboard">Dashboard</a></li>
+                    <li><a asp-controller="Account" asp-action="Logout">Logout</a></li>
+                }
+                else
+                {
+                    <li><a asp-controller="Account" asp-action="Login">Login</a></li>
+                    <li><a asp-controller="Account" asp-action="Register">Register</a></li>
+                }
+            </ul>
+        </nav>
+    </header>
+
+    <main>
+        @RenderBody()
+    </main>
+</body>
+</html>

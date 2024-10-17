@@ -1,0 +1,40 @@
+﻿@model CMCS.Models.Claim
+
+@{
+    ViewData["Title"] = "Claim Details";
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin="" />
+    <link rel="stylesheet" href="~/css/site.css" />
+    <title>Claim Details</title>
+</head>
+<body class="bg-slate-50 min-h-screen flex flex-col">
+    <div class="flex-grow flex items-center justify-center px-4 sm:px-6 lg:px-8">
+        <div class="max-w-lg w-full space-y-4">
+            <h2 class="text-center text-2xl font-bold text-[#0e141b]">Claim Status</h2>
+            <p>Lecturer: @Model.LecturerName</p>
+            <p>Hours Worked: @Model.HoursWorked</p>
+            <p>Hourly Rate: @Model.HourlyRate</p>
+            <p>Status: @Model.Status</p>
+
+            @if (Model.Status == "Pending")
+            {
+                <p class="text-yellow-600">Your claim is under review.</p>
+            }
+            else if (Model.Status == "Approved")
+            {
+                <p class="text-green-600">Your claim has been approved!</p>
+            }
+            else
+            {
+                <p class="text-red-600">Your claim was rejected.</p>
+            }
+        </div>
+    </div>
+</body>
+</html>

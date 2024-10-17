@@ -1,0 +1,101 @@
+@model IEnumerable<CMCS.Models.Claim>
+
+@{
+    ViewData["Title"] = "Claims Dashboard";
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin="" />
+    <link rel="stylesheet" href="~/css/site.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" />
+    <title>Claims Dashboard</title>
+</head>
+<body class="bg-slate-50 min-h-screen flex flex-col">
+    <div class="flex-grow flex items-center justify-center px-4 sm:px-6 lg:px-8">
+        <div class="max-w-4xl w-full space-y-8">
+            <h1 class="text-center text-3xl font-bold text-[#0e141b]">Contract Monthly Claim System</h1>
+
+            <div class="mt-4">
+                <h3 class="text-xl font-semibold">Claims Overview</h3>
+                <table class="table-auto w-full bg-white shadow-md rounded-lg mt-4">
+                    <thead class="bg-[#f0f0f0]">
+                        <tr>
+                            <th class="px-4 py-2">Claim ID</th>
+                            <th class="px-4 py-2">Lecturer Name</th>
+                            <th class="px-4 py-2">Hours Worked</th>
+                            <th class="px-4 py-2">Hourly Rate</th>
+                            <th class="px-4 py-2">Total Amount</th>
+                            <th class="px-4 py-2">Status</th>
+                            <th class="px-4 py-2">Supporting Document</th>
+                            <th class="px-4 py-2">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (Model != null && Model.Any())
+
+                        {
+
+                            foreach (var claim in Model)
+
+                            {
+                                <tr>
+                                    <td class="px-4 py-2">@claim.Id</td>
+                                    <td class="px-4 py-2">@claim.LecturerName</td>
+                                    <td class="px-4 py-2">@claim.HoursWorked</td>
+                                    <td class="px-4 py-2">@claim.HourlyRate</td>
+                                    <td class="px-4 py-2">@((decimal)claim.HoursWorked * claim.HourlyRate)</td>
+                                    <td class="px-4 py-2">@claim.Status</td>
+                                    <td class="px-4 py-2"><a href="#" class="text-indigo-600">Document.pdf</a></td>
+                                    <td class="px-4 py-2">
+                                        <form method="post" action="/Claims/ApproveRejectClaim" class="inline">
+                                            <button type="submit" name="approve" value="true" class="btn btn-success btn-sm">Approve</button>
+                                            <button type="submit" name="approve" value="false" class="btn btn-danger btn-sm">Reject</button>
+                                            <input type="hidden" name="Id" value="@claim.Id" />
+                                        </form>
+                                    </td>
+                                </tr>
+                            }
+
+                        }
+
+                        else
+
+                        {
+                            <tr>
+                                <td colspan="8" class="text-center px-4 py-2">No claims available.</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="mt-5">
+                <h3 class="text-xl font-semibold">Submit New Claim</h3>
+                <form method="post" action="/Claims/SubmitClaim" class="mt-4 space-y-4">
+                    <div class="form-group">
+                        <label for="lecturerName" class="block text-sm font-medium text-gray-700">Lecturer Name</label>
+                        <input type="text" id="lecturerName" name="lecturerName" class="mt-1 block w-full border border-gray-300 rounded-md p-2" required />
+                    </div>
+                    <div class="form-group">
+                        <label for="hoursWorked" class="block text-sm font-medium text-gray-700">Hours Worked</label>
+                        <input type="number" id="hoursWorked" name="hoursWorked" class="mt-1 block w-full border border-gray-300 rounded-md p-2" required />
+                    </div>
+                    <div class="form-group">
+                        <label for="hourlyRate" class="block text-sm font-medium text-gray-700">Hourly Rate</label>
+                        <input type="number" id="hourlyRate" name="hourlyRate" class="mt-1 block w-full border border-gray-300 rounded-md p-2" required />
+                    </div>
+                    <div class="form-group">
+                        <label for="document" class="block text-sm font-medium text-gray-700">Upload Supporting Document</label>
+                        <input type="file" id="document" name="document" class="mt-1 block w-full border border-gray-300 rounded-md p-2" required />
+                    </div>
+                    <button type="submit" class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700">Submit Claim</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
