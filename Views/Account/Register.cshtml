@@ -35,6 +35,10 @@
                         window.location.href = '@Url.Action("Login", "Account")';
                     }, 5000);
                 </script>
+
+
+                // Clear TempData after showing the message
+                TempData.Remove("SuccessMessage");
             }
             else
             {

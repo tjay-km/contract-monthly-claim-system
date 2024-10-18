@@ -1,0 +1,11 @@
+﻿@model CMCS.Models.Claim
+
+@{
+    ViewData["Title"] = "Claim Submitted Successfully";
+}
+
+<div class="container mt-5">
+    <h1 class="text-center">Claim Submitted Successfully</h1>
+    <p>Your claim has been submitted successfully!</p>
+    <a href="@Url.Action("Submit", "Claim")" class="btn btn-primary">Submit Another Claim</a>
+</div>

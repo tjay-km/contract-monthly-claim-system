@@ -15,12 +15,12 @@
 </head>
 <body class="bg-slate-50 min-h-screen flex flex-col">
     <div class="flex-grow flex items-center justify-center px-4 sm:px-6 lg:px-8">
-        <div class="max-w-lg w-full space-y-4">
+        <div class="max-w-lg w-full space-y-4 p-6 bg-white rounded-lg shadow-md">
             <h2 class="text-center text-2xl font-bold text-[#0e141b]">Claim Status</h2>
-            <p>Lecturer: @Model.LecturerName</p>
-            <p>Hours Worked: @Model.HoursWorked</p>
-            <p>Hourly Rate: @Model.HourlyRate</p>
-            <p>Status: @Model.Status</p>
+            <p><strong>Lecturer:</strong> @Model.LecturerName</p>
+            <p><strong>Hours Worked:</strong> @Model.HoursWorked</p>
+            <p><strong>Hourly Rate:</strong> @Model.HourlyRate</p>
+            <p><strong>Status:</strong> @Model.Status</p>
 
             @if (Model.Status == "Pending")
             {
@@ -34,6 +34,22 @@
             {
                 <p class="text-red-600">Your claim was rejected.</p>
             }
+
+            @if (!string.IsNullOrEmpty(Model.AdditionalNotes))
+            {
+                <h3 class="text-lg font-semibold">Additional Notes:</h3>
+                <p>@Model.AdditionalNotes</p>
+            }
+
+            @if (!string.IsNullOrEmpty(Model.SupportingDocumentPath))
+            {
+                <h3 class="text-lg font-semibold">Supporting Document:</h3>
+                <a href="@Url.Content(Model.SupportingDocumentPath)" target="_blank" class="text-blue-600 underline">View Document</a>
+            }
+
+            <div class="flex justify-center">
+                <a href="@Url.Action("Index", "Dashboard")" class="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Back to Claims</a>
+            </div>
         </div>
     </div>
 </body>

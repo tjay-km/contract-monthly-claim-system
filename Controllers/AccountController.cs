@@ -117,7 +117,13 @@ namespace CMCS.Controllers
 
         public async Task<IActionResult> Logout()
         {
+            // Clear TempData to remove any old success messages
+            TempData.Clear();
+
+            // Log the user out
             await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+
+            // Redirect to home page
             return RedirectToAction("Index", "Home");
         }
 

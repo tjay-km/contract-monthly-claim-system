@@ -1,7 +1,7 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using CMCS.Models;
+using CMCS.Services; // Ensure this using directive is included
 using Microsoft.AspNetCore.Authorization;
-using CMCS.Models;
-using CMCS.Services; // Add this using directive
+using Microsoft.AspNetCore.Mvc;
 using System.Linq;
 
 namespace CMCS.Controllers
@@ -18,17 +18,26 @@ namespace CMCS.Controllers
 
         public IActionResult Index()
         {
-            var claims = _claimsService.GetClaims();
+            var viewModel = new DashboardViewModel();
+
+            var claims = _claimsService.GetClaims(); // Get claims from the service
+
             if (User.IsInRole("Lecturer"))
             {
-                var lecturerClaims = claims.Where(c => c.LecturerName == User.Identity.Name).ToList();
-                return View("LecturerDashboard", lecturerClaims);
+                viewModel.Claims = claims
+                    .Where(c => c.LecturerName == User.Identity.Name)
+                    .OrderByDescending(c => c.DateSubmitted)
+                    .ToList();
             }
             else if (User.IsInRole("ProgrammeCoordinator") || User.IsInRole("AcademicManager"))
             {
-                return View("ManagerDashboard", claims);
+                viewModel.PendingClaims = claims
+                    .Where(c => c.Status == "Pending")
+                    .OrderByDescending(c => c.DateSubmitted)
+                    .ToList();
             }
-            return View("Index");
+
+            return View(viewModel);
         }
 
         [HttpPost]

@@ -1,9 +1,9 @@
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using System;
 using CMCS.Models;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using System.Collections.Generic;
 using CMCS.Services;
 
 namespace CMCS
@@ -41,26 +41,17 @@ namespace CMCS
         {
             services.AddControllersWithViews();
 
-            // Remove session service
-            // services.AddDistributedMemoryCache();
-            // services.AddSession(options =>
-            // {
-            //     options.IdleTimeout = TimeSpan.FromMinutes(30);
-            //     options.Cookie.HttpOnly = true;
-            //     options.Cookie.IsEssential = true;
-            // });
+            // Remove the in-memory database context registration
+            // services.AddDbContext<ApplicationDbContext>(options =>
+            //     options.UseInMemoryDatabase("InMemoryDb"));
 
-            // In-memory user storage
+            // Register in-memory storage for users and claims
             services.AddSingleton<List<User>>(new List<User>());
-            services.AddControllersWithViews();
-
-            // Register the claims list as a singleton (or scoped, depending on your needs)
             services.AddSingleton<List<Claim>>(new List<Claim>());
 
-            // Register the claims service
+            // Register the claims service if you have any logic to handle claims
             services.AddSingleton<IClaimsService, ClaimsService>();
 
-            // Add cookie authentication
             services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
                 .AddCookie(options =>
                 {
@@ -68,7 +59,6 @@ namespace CMCS
                     options.LogoutPath = "/Account/Logout";
                 });
 
-            // Add authorization policies for roles
             services.AddAuthorization(options =>
             {
                 options.AddPolicy("Lecturer", policy => policy.RequireRole("Lecturer"));

@@ -1,17 +1,47 @@
+@model CMCS.Models.DashboardViewModel
 @{
     ViewData["Title"] = "Dashboard";
 }
 
-<div class="container mt-5">
-    <h1 class="text-center">Contract Monthly Claim System</h1>
-    <div class="row mt-4">
-        <div class="col-md-12">
-            <h3>Claims Overview</h3>
-            <table class="table table-bordered table-striped">
+<div class="container mx-auto px-4 py-8">
+    <h1 class="text-3xl font-bold mb-8">Contract Monthly Claim System Dashboard</h1>
+
+    @if (User.IsInRole("Lecturer"))
+
+    {
+        <div class="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4">
+            <h2 class="text-2xl font-bold mb-4">Submit New Claim</h2>
+            <form asp-controller="Claim" asp-action="Submit" method="post" enctype="multipart/form-data">
+                <div class="form-group">
+                    <label asp-for="Claim.LecturerName" class="control-label"></label>
+                    <input asp-for="Claim.LecturerName" class="form-control" readonly />
+                </div>
+                <div class="form-group">
+                    <label asp-for="Claim.HoursWorked" class="control-label"></label>
+                    <input asp-for="Claim.HoursWorked" class="form-control" required />
+                </div>
+                <div class="form-group">
+                    <label asp-for="Claim.HourlyRate" class="control-label"></label>
+                    <input asp-for="Claim.HourlyRate" class="form-control" required />
+                </div>
+                <div class="form-group">
+                    <label>Upload Supporting Document</label>
+                    <input type="file" class="form-control" name="supportingDocument" required />
+                </div>
+                <button type="submit" class="btn btn-primary mt-4">Submit Claim</button>
+            </form>
+        </div>
+    }
+
+    @if (Model.Claims != null && Model.Claims.Any())
+
+    {
+        <div class="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4">
+            <h2 class="text-2xl font-bold mb-4">My Claims</h2>
+            <table class="table table-bordered table-striped w-full">
                 <thead class="thead-dark">
                     <tr>
                         <th>Claim ID</th>
-                        <th>Lecturer Name</th>
                         <th>Hours Worked</th>
                         <th>Hourly Rate</th>
                         <th>Total Amount</th>
@@ -21,60 +51,124 @@
                     </tr>
                 </thead>
                 <tbody>
-                    <!-- Sample claim data (replace with actual data from your model) -->
-                    <tr>
-                        <td>1</td>
-                        <td>John Doe</td>
-                        <td>30</td>
-                        <td>$50</td>
-                        <td>$1500</td>
-                        <td>Pending</td>
-                        <td><a href="#">Document.pdf</a></td>
-                        <td>
-                            <a href="#" class="btn btn-success btn-sm">Approve</a>
-                            <a href="#" class="btn btn-danger btn-sm">Reject</a>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td>2</td>
-                        <td>Jane Smith</td>
-                        <td>25</td>
-                        <td>$45</td>
-                        <td>$1125</td>
-                        <td>Approved</td>
-                        <td><a href="#">Document.pdf</a></td>
-                        <td>
-                            <a href="#" class="btn btn-primary btn-sm">View</a>
-                        </td>
-                    </tr>
-                    <!-- More claims can be added dynamically from model -->
+                    @foreach (var claim in Model.Claims)
+                    {
+                        <tr>
+                            <td>@claim.Id</td>
+                            <td>@claim.HoursWorked</td>
+                            <td>@claim.HourlyRate.ToString("C")</td>
+                            <td>@(((decimal)claim.HoursWorked * claim.HourlyRate).ToString("C"))</td>
+                            <td>@claim.Status</td>
+                            <td>
+                                @if (!string.IsNullOrEmpty(claim.SupportingDocumentPath))
+
+                                {
+                                    <a href="@claim.SupportingDocumentPath" target="_blank">View Document</a>
+                                }
+                            </td>
+                            <td>
+                                @if (claim.Status == "Pending")
+
+                                {
+                                    <button onclick="updateClaimStatus(@claim.Id, 'Approved')" class="btn btn-success btn-sm">Approve</button>
+                                    <button onclick="updateClaimStatus(@claim.Id, 'Rejected')" class="btn btn-danger btn-sm">Reject</button>
+                                }
+
+                                else
+
+                                {
+                                    <button class="btn btn-primary btn-sm" disabled>View</button>
+                                }
+                            </td>
+                        </tr>
+                    }
                 </tbody>
             </table>
         </div>
-    </div>
+    }
 
-    <div class="row mt-5">
-        <div class="col-md-12">
-            <h3>Submit New Claim</h3>
-            <form method="post" action="/Claims/SubmitClaim">
-                <div class="form-group">
-                    <label for="lecturerName">Lecturer Name</label>
-                    <input type="text" class="form-control" id="lecturerName" name="lecturerName" required />
-                </div>
-                <div class="form-group">
-                    <label for="hoursWorked">Hours Worked</label>
-                    <input type="number" class="form-control" id="hoursWorked" name="hoursWorked" required />
-                </div>
-                <div class="form-group">
-                    <label for="hourlyRate">Hourly Rate</label>
-                    <input type="number" class="form-control" id="hourlyRate" name="hourlyRate" required />
-                </div>
-                <div class="form-group">
-                    <label for="document">Upload Supporting Document</label>
-                    <input type="file" class="form-control" id="document" name="document" required />
-                </div>
-                <button type="submit" class="btn btn-primary">Submit Claim</button>
-            </form>
-        </div>
-    </div>
+    else
+
+    {
+        <p>No claims found.</p>
+    }
+
+    @if (User.IsInRole("ProgrammeCoordinator") || User.IsInRole("AcademicManager"))
+
+    {
+        @if (Model.PendingClaims != null && Model.PendingClaims.Any())
+
+        {
+            <div class="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4">
+                <h2 class="text-2xl font-bold mb-4">Pending Claims</h2>
+                <table class="table table-bordered table-striped w-full">
+                    <thead class="thead-dark">
+                        <tr>
+                            <th>Claim ID</th>
+                            <th>Lecturer Name</th>
+                            <th>Hours Worked</th>
+                            <th>Hourly Rate</th>
+                            <th>Total Amount</th>
+                            <th>Status</th>
+                            <th>Supporting Document</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var claim in Model.PendingClaims)
+
+                        {
+                            <tr>
+                                <td>@claim.Id</td>
+                                <td>@claim.LecturerName</td>
+                                <td>@claim.HoursWorked</td>
+                                <td>@claim.HourlyRate.ToString("C")</td>
+                                <td>@(((decimal)claim.HoursWorked * claim.HourlyRate).ToString("C"))</td>
+                                <td>@claim.Status</td>
+                                <td>
+                                    @if (!string.IsNullOrEmpty(claim.SupportingDocumentPath))
+                                    {
+                                        <a href="@claim.SupportingDocumentPath" target="_blank">View Document</a>
+                                    }
+                                </td>
+                                <td>
+                                    <button onclick="updateClaimStatus(@claim.Id, 'Approved')" class="btn btn-success btn-sm">Approve</button>
+                                    <button onclick="updateClaimStatus(@claim.Id, 'Rejected')" class="btn btn-danger btn-sm">Reject</button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+
+        else
+
+        {
+            <p>No pending claims found.</p>
+        }
+    }
 </div>
+
+@section Scripts {
+    <script>
+        function updateClaimStatus(id, status) {
+            $.ajax({
+                url: '@Url.Action("UpdateClaimStatus", "Claim")',
+                type: 'POST',
+                data: { id: id, status: status },
+                success: function (result) {
+                    if (result.success) {
+                        alert(result.message);
+                        location.reload();
+                    } else {
+                        alert('Error updating claim status');
+                    }
+                },
+                error: function () {
+                    alert('An error occurred while updating the claim status');
+                }
+            });
+        }
+    </script>
+}
