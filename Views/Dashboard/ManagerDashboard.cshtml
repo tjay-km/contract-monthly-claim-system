@@ -1,8 +1,8 @@
 ﻿@model List<CMCS.Models.Claim>
 
-<h2>Claims Dashboard</h2>
+<h2 class="text-2xl font-bold mb-4">Claims Dashboard</h2>
 
-<table class="min-w-full bg-white">
+<table class="min-w-full bg-white border border-gray-200">
     <thead>
         <tr>
             <th class="py-2 px-4 border-b">Lecturer</th>
@@ -18,12 +18,12 @@
             <tr>
                 <td class="py-2 px-4 border-b">@claim.LecturerName</td>
                 <td class="py-2 px-4 border-b">@claim.HoursWorked</td>
-                <td class="py-2 px-4 border-b">@claim.HourlyRate</td>
+                <td class="py-2 px-4 border-b">@claim.HourlyRate.ToString("C")</td>
                 <td class="py-2 px-4 border-b">@claim.Status</td>
                 <td class="py-2 px-4 border-b">
                     @if (claim.Status == "Pending")
                     {
-                        <button onclick="updateStatus(@claim.Id, 'Approved')" class="bg-green-500 hover:bg-green-700 text-white font-bold py-1 px-2 rounded">Approve</button>
+                        <button onclick="updateStatus(@claim.Id, 'Approved')" class="bg-green-500 hover:bg-green-700 text-white font-bold py-1 px-2 rounded mr-2">Approve</button>
                         <button onclick="updateStatus(@claim.Id, 'Rejected')" class="bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-2 rounded">Reject</button>
                     }
                 </td>
@@ -35,13 +35,15 @@
 @section Scripts {
     <script>
         function updateStatus(id, status) {
-            $.post('/Dashboard/UpdateClaimStatus', { id: id, status: status }, function(result) {
+            $.post('/Dashboard/UpdateClaimStatus', { id: id, status: status }, function (result) {
                 if (result.success) {
                     alert(result.message);
-                    location.reload();
+                    location.reload(); // Reload the page to reflect the updated status
                 } else {
-                    alert('Error updating claim status');
+                    alert('Error updating claim status: ' + result.message);
                 }
+            }).fail(function () {
+                alert('An error occurred while updating the claim status');
             });
         }
     </script>

@@ -17,34 +17,52 @@
     <div class="flex-grow flex items-center justify-center px-4 sm:px-6 lg:px-8">
         <div class="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4">
             <h2 class="text-2xl font-bold mb-4">Submit New Claim</h2>
+
+            @if (!ViewData.ModelState.IsValid)
+            {
+                <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
+                    <ul>
+                        @foreach (var modelState in ViewData.ModelState.Values)
+                        {
+                            foreach (var error in modelState.Errors)
+                            {
+                                <li>@error.ErrorMessage</li>
+                            }
+                        }
+                    </ul>
+                </div>
+            }
+
             <form asp-controller="Claim" asp-action="Submit" method="post" enctype="multipart/form-data">
+                <input type="hidden" asp-for="LecturerName" value="@User.Identity.Name" />
+
                 <div class="mb-4">
-                    <label class="block text-gray-700 text-sm font-bold mb-2" for="hoursWorked">
-                        Hours Worked
-                    </label>
-                    <input class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" id="hoursWorked" name="HoursWorked" type="number" step="0.5" required>
+                    <label asp-for="HoursWorked" class="block text-gray-700 text-sm font-bold mb-2">Hours Worked</label>
+                    <input asp-for="HoursWorked" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" type="number" step="0.5" required>
+                    <span asp-validation-for="HoursWorked" class="text-red-500 text-xs italic"></span>
                 </div>
+
                 <div class="mb-4">
-                    <label class="block text-gray-700 text-sm font-bold mb-2" for="hourlyRate">
-                        Hourly Rate
-                    </label>
-                    <input class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" id="hourlyRate" name="HourlyRate" type="number" step="0.01" required>
+                    <label asp-for="HourlyRate" class="block text-gray-700 text-sm font-bold mb-2">Hourly Rate</label>
+                    <input asp-for="HourlyRate" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" type="number" step="0.01" required>
+                    <span asp-validation-for="HourlyRate" class="text-red-500 text-xs italic"></span>
                 </div>
+
                 <div class="mb-4">
-                    <label class="block text-gray-700 text-sm font-bold mb-2" for="additionalNotes">
-                        Additional Notes
-                    </label>
-                    <textarea class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" id="additionalNotes" name="AdditionalNotes" rows="3"></textarea>
+                    <label asp-for="AdditionalNotes" class="block text-gray-700 text-sm font-bold mb-2">Additional Notes</label>
+                    <textarea asp-for="AdditionalNotes" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" rows="3"></textarea>
+                    <span asp-validation-for="AdditionalNotes" class="text-red-500 text-xs italic"></span>
                 </div>
+
                 <div class="mb-4">
-                    <label class="block text-gray-700 text-sm font-bold mb-2" for="supportingDocument">
-                        Supporting Document
-                    </label>
-                    <input type="file" id="supportingDocument" name="SupportingDocument" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" accept=".pdf,.docx,.xlsx">
+                    <label for="supportingDocument" class="block text-gray-700 text-sm font-bold mb-2">Supporting Document</label>
+                    <input type="file" asp-for="SupportingDocumentPath" id="supportingDocument" name="supportingDocument" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" accept=".pdf,.docx,.xlsx">
                     <p class="text-sm text-gray-600 mt-1">Max file size: 5MB. Allowed formats: .pdf, .docx, .xlsx</p>
+                    <span asp-validation-for="SupportingDocumentPath" class="text-red-500 text-xs italic"></span>
                 </div>
+
                 <div class="flex items-center justify-between">
-                    <button class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline" type="submit">
+                    <button type="submit" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
                         Submit Claim
                     </button>
                 </div>

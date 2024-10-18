@@ -9,146 +9,59 @@
     @if (User.IsInRole("Lecturer"))
 
     {
-        <div class="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4">
-            <h2 class="text-2xl font-bold mb-4">Submit New Claim</h2>
-            <form asp-controller="Claim" asp-action="Submit" method="post" enctype="multipart/form-data">
-                <div class="form-group">
-                    <label asp-for="Claim.LecturerName" class="control-label"></label>
-                    <input asp-for="Claim.LecturerName" class="form-control" readonly />
-                </div>
-                <div class="form-group">
-                    <label asp-for="Claim.HoursWorked" class="control-label"></label>
-                    <input asp-for="Claim.HoursWorked" class="form-control" required />
-                </div>
-                <div class="form-group">
-                    <label asp-for="Claim.HourlyRate" class="control-label"></label>
-                    <input asp-for="Claim.HourlyRate" class="form-control" required />
-                </div>
-                <div class="form-group">
-                    <label>Upload Supporting Document</label>
-                    <input type="file" class="form-control" name="supportingDocument" required />
-                </div>
-                <button type="submit" class="btn btn-primary mt-4">Submit Claim</button>
-            </form>
+        <div class="row mt-5">
+            <div class="col-md-12">
+                <h2 class="text-2xl font-bold mb-4">Submit Claim</h2>
+                <a href="@Url.Action("Submit", "Claim")" class="btn btn-primary">Go to Submit Claim</a>
+            </div>
         </div>
-    }
 
-    @if (Model.Claims != null && Model.Claims.Any())
-
-    {
         <div class="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4">
             <h2 class="text-2xl font-bold mb-4">My Claims</h2>
-            <table class="table table-bordered table-striped w-full">
-                <thead class="thead-dark">
+            <table class="w-full">
+                <thead>
                     <tr>
-                        <th>Claim ID</th>
-                        <th>Hours Worked</th>
-                        <th>Hourly Rate</th>
-                        <th>Total Amount</th>
-                        <th>Status</th>
-                        <th>Supporting Document</th>
-                        <th>Actions</th>
+                        <th class="px-4 py-2">Date Submitted</th>
+                        <th class="px-4 py-2">Hours Worked</th>
+                        <th class="px-4 py-2">Hourly Rate</th>
+                        <th class="px-4 py-2">Total Amount</th>
+                        <th class="px-4 py-2">Status</th>
+                        <th class="px-4 py-2">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach (var claim in Model.Claims)
+                    @if (Model.Claims != null)
                     {
-                        <tr>
-                            <td>@claim.Id</td>
-                            <td>@claim.HoursWorked</td>
-                            <td>@claim.HourlyRate.ToString("C")</td>
-                            <td>@(((decimal)claim.HoursWorked * claim.HourlyRate).ToString("C"))</td>
-                            <td>@claim.Status</td>
-                            <td>
-                                @if (!string.IsNullOrEmpty(claim.SupportingDocumentPath))
 
-                                {
-                                    <a href="@claim.SupportingDocumentPath" target="_blank">View Document</a>
-                                }
-                            </td>
-                            <td>
-                                @if (claim.Status == "Pending")
+                        foreach (var claim in Model.Claims)
 
-                                {
-                                    <button onclick="updateClaimStatus(@claim.Id, 'Approved')" class="btn btn-success btn-sm">Approve</button>
-                                    <button onclick="updateClaimStatus(@claim.Id, 'Rejected')" class="btn btn-danger btn-sm">Reject</button>
-                                }
-
-                                else
-
-                                {
-                                    <button class="btn btn-primary btn-sm" disabled>View</button>
-                                }
-                            </td>
-                        </tr>
+                        {
+                            <tr>
+                                <td class="border px-4 py-2">@claim.DateSubmitted.ToShortDateString()</td>
+                                <td class="border px-4 py-2">@claim.HoursWorked</td>
+                                <td class="border px-4 py-2">@claim.HourlyRate.ToString("C")</td>
+                                <td class="border px-4 py-2">@((Convert.ToDecimal(claim.HoursWorked) * claim.HourlyRate).ToString("C"))</td>
+                                <td class="border px-4 py-2">
+                                    <span class="@(claim.Status == "Approved" ? "text-green-500" : (claim.Status == "Rejected" ? "text-red-500" : "text-yellow-500"))">
+                                        @claim.Status
+                                    </span>
+                                </td>
+                                <td class="border px-4 py-2">
+                                    @if (claim.SupportingDocumentPath != null)
+                                    {
+                                        <a href="@Url.Action("DownloadDocument", "Claim", new { id = claim.Id })" class="text-blue-500 hover:text-blue-700">Download Document</a>
+                                    }
+                                </td>
+                            </tr>
+                        }
                     }
                 </tbody>
             </table>
         </div>
     }
-
-    else
-
-    {
-        <p>No claims found.</p>
-    }
-
-    @if (User.IsInRole("ProgrammeCoordinator") || User.IsInRole("AcademicManager"))
-
-    {
-        @if (Model.PendingClaims != null && Model.PendingClaims.Any())
-
-        {
-            <div class="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4">
-                <h2 class="text-2xl font-bold mb-4">Pending Claims</h2>
-                <table class="table table-bordered table-striped w-full">
-                    <thead class="thead-dark">
-                        <tr>
-                            <th>Claim ID</th>
-                            <th>Lecturer Name</th>
-                            <th>Hours Worked</th>
-                            <th>Hourly Rate</th>
-                            <th>Total Amount</th>
-                            <th>Status</th>
-                            <th>Supporting Document</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach (var claim in Model.PendingClaims)
-
-                        {
-                            <tr>
-                                <td>@claim.Id</td>
-                                <td>@claim.LecturerName</td>
-                                <td>@claim.HoursWorked</td>
-                                <td>@claim.HourlyRate.ToString("C")</td>
-                                <td>@(((decimal)claim.HoursWorked * claim.HourlyRate).ToString("C"))</td>
-                                <td>@claim.Status</td>
-                                <td>
-                                    @if (!string.IsNullOrEmpty(claim.SupportingDocumentPath))
-                                    {
-                                        <a href="@claim.SupportingDocumentPath" target="_blank">View Document</a>
-                                    }
-                                </td>
-                                <td>
-                                    <button onclick="updateClaimStatus(@claim.Id, 'Approved')" class="btn btn-success btn-sm">Approve</button>
-                                    <button onclick="updateClaimStatus(@claim.Id, 'Rejected')" class="btn btn-danger btn-sm">Reject</button>
-                                </td>
-                            </tr>
-                        }
-                    </tbody>
-                </table>
-            </div>
-        }
-
-        else
-
-        {
-            <p>No pending claims found.</p>
-        }
-    }
 </div>
+
+
 
 @section Scripts {
     <script>
@@ -162,7 +75,7 @@
                         alert(result.message);
                         location.reload();
                     } else {
-                        alert('Error updating claim status');
+                        alert('Error updating claim status: ' + result.message);
                     }
                 },
                 error: function () {

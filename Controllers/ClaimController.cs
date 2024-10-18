@@ -1,25 +1,24 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using System.Linq;
+using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using CMCS.Models;
 using System.Collections.Generic;
-using System.Linq;
 using System.IO;
-using Microsoft.AspNetCore.Http;
-using System.Threading.Tasks;
-using Microsoft.Extensions.Logging;
 
 namespace CMCS.Controllers
 {
     [Authorize]
     public class ClaimController : Controller
     {
-        private readonly List<Claim> _claims; // In-memory storage for claims
+        private readonly List<Claim> _claims;
         private readonly ILogger<ClaimController> _logger;
 
-        // Inject the in-memory claims list and logger via constructor
         public ClaimController(List<Claim> claims, ILogger<ClaimController> logger)
         {
-            _claims = claims ?? new List<Claim>(); // Initialize if null
+            _claims = claims ?? new List<Claim>();
             _logger = logger;
         }
 
@@ -31,73 +30,81 @@ namespace CMCS.Controllers
 
         [Authorize(Roles = "Lecturer")]
         [HttpPost]
-        public async Task<IActionResult> Submit(Claim claim, IFormFile supportingDocument)
+        public async Task<IActionResult> Submit(Claim claim, IFormFile? supportingDocument) // Allow supportingDocument to be null
         {
-            if (ModelState.IsValid)
+            if (!ModelState.IsValid)
             {
-                try
+                foreach (var error in ModelState.Values.SelectMany(v => v.Errors))
                 {
-                    // Set claim details
-                    claim.LecturerName = User.Identity.Name;
-                    claim.DateSubmitted = DateTime.Now;
-                    claim.Status = "Pending";
-
-                    // Handle file upload
-                    if (supportingDocument != null && supportingDocument.Length > 0)
-                    {
-                        claim.SupportingDocumentPath = await SaveSupportingDocument(supportingDocument);
-                    }
-
-                    // Add claim to the in-memory list
-                    claim.Id = _claims.Count + 1; // Simulate auto-increment
-                    _claims.Add(claim); // Store claim in memory
-
-                    _logger.LogInformation($"Claim submitted by {claim.LecturerName} on {claim.DateSubmitted}.");
-
-                    // Redirect to the Success view after successful submission
-                    return RedirectToAction("Success");
+                    _logger.LogError(error.ErrorMessage);
                 }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Error submitting claim");
-                    ModelState.AddModelError("", "An error occurred while submitting the claim. Please try again.");
-                }
+                return View(claim);
             }
 
-            return View(claim); // Return the view with the model if the model state is invalid
+            // Check if the file is present
+            if (supportingDocument != null && supportingDocument.Length > 0) // Only save if a file is uploaded
+            {
+                claim.SupportingDocumentPath = await SaveSupportingDocument(supportingDocument);
+            }
+            else
+            {
+                claim.SupportingDocumentPath = null; // or leave it unset
+            }
+
+            try
+            {
+                claim.LecturerName = User.Identity.Name;
+                claim.DateSubmitted = DateTime.Now;
+                claim.Status = "Pending";
+
+                claim.Id = _claims.Count + 1;
+                _claims.Add(claim);
+
+                _logger.LogInformation($"Claim submitted by {claim.LecturerName} on {claim.DateSubmitted}.");
+
+                TempData["SuccessMessage"] = "Claim submitted successfully!";
+                return RedirectToAction("Dashboard"); // Redirect to the dashboard view
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error submitting claim");
+                ModelState.AddModelError("", "An error occurred while submitting the claim. Please try again.");
+            }
+
+            return View(claim);
         }
 
-
-
-        private async Task<string> SaveSupportingDocument(IFormFile supportingDocument)
+        private async Task<string> SaveSupportingDocument(IFormFile file)
         {
-            var fileName = Path.GetFileName(supportingDocument.FileName);
-            var filePath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", fileName);
-
-            // Ensure the uploads directory exists
-            if (!Directory.Exists(Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads")))
+            var uploadPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads");
+            if (!Directory.Exists(uploadPath))
             {
-                Directory.CreateDirectory(Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads"));
+                Directory.CreateDirectory(uploadPath);
             }
+
+            var fileName = Path.GetRandomFileName() + Path.GetExtension(file.FileName);
+            var filePath = Path.Combine(uploadPath, fileName);
 
             using (var stream = new FileStream(filePath, FileMode.Create))
             {
-                await supportingDocument.CopyToAsync(stream);
+                await file.CopyToAsync(stream);
             }
 
-            return "/uploads/" + fileName;
+            return $"/uploads/{fileName}";
         }
 
-        // New action for the success page
-        public IActionResult Success()
+        [Authorize(Roles = "Lecturer")]
+        public IActionResult Dashboard()
         {
-            ViewBag.SuccessMessage = "Claim submitted successfully!";
             var model = new DashboardViewModel
             {
                 Claim = new Claim(), // Reset the claim for a new submission
                 Claims = _claims.Where(c => c.LecturerName == User.Identity.Name).ToList(),
                 PendingClaims = _claims.Where(c => c.Status == "Pending").ToList()
             };
+
+            // Display success message if it exists
+            ViewBag.SuccessMessage = TempData["SuccessMessage"];
             return View(model);
         }
 
@@ -113,10 +120,11 @@ namespace CMCS.Controllers
 
             // Update claim status
             claim.Status = status;
-
             _logger.LogInformation($"Claim ID {id} status updated to {status}.");
+
             return Json(new { success = true, message = $"Claim status updated to {status}" });
         }
+
 
         [Authorize(Roles = "ProgrammeCoordinator,AcademicManager,Lecturer")]
         public IActionResult DownloadDocument(int id)
@@ -124,12 +132,18 @@ namespace CMCS.Controllers
             var claim = _claims.FirstOrDefault(c => c.Id == id);
             if (claim == null || string.IsNullOrEmpty(claim.SupportingDocumentPath))
             {
-                return NotFound();
+                return NotFound("Document not found.");
             }
 
+            // Build the full file path from the stored document path
             var filePath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", claim.SupportingDocumentPath.TrimStart('/'));
+            if (!System.IO.File.Exists(filePath))
+            {
+                return NotFound("File not found.");
+            }
+
             var fileName = Path.GetFileName(filePath);
-            var mimeType = "application/octet-stream";
+            var mimeType = "application/octet-stream"; // Default MIME type
 
             return PhysicalFile(filePath, mimeType, fileName);
         }
