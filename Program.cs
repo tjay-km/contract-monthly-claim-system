@@ -3,9 +3,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using System;
 using CMCS.Models;
-using System.Collections.Generic;
 using Microsoft.AspNetCore.Authentication.Cookies;
-using System.Security.Claims; // For built-in claims
+using CMCS.Services;
 
 namespace CMCS
 {
@@ -14,7 +13,6 @@ namespace CMCS
         public static void Main(string[] args)
         {
             var builder = WebApplication.CreateBuilder(args);
-
             ConfigureServices(builder.Services);
 
             var app = builder.Build();
@@ -32,8 +30,6 @@ namespace CMCS
             app.UseAuthentication();
             app.UseAuthorization();
 
-            app.UseSession();
-
             app.MapControllerRoute(
                 name: "default",
                 pattern: "{controller=Home}/{action=Index}/{id?}");
@@ -45,18 +41,26 @@ namespace CMCS
         {
             services.AddControllersWithViews();
 
-            services.AddDistributedMemoryCache();
-            services.AddSession(options =>
-            {
-                options.IdleTimeout = TimeSpan.FromMinutes(30);
-                options.Cookie.HttpOnly = true;
-                options.Cookie.IsEssential = true;
-            });
+            // Remove session service
+            // services.AddDistributedMemoryCache();
+            // services.AddSession(options =>
+            // {
+            //     options.IdleTimeout = TimeSpan.FromMinutes(30);
+            //     options.Cookie.HttpOnly = true;
+            //     options.Cookie.IsEssential = true;
+            // });
 
             // In-memory user storage
             services.AddSingleton<List<User>>(new List<User>());
+            services.AddControllersWithViews();
 
-            // Add cookie authentication (without IdentityUser)
+            // Register the claims list as a singleton (or scoped, depending on your needs)
+            services.AddSingleton<List<Claim>>(new List<Claim>());
+
+            // Register the claims service
+            services.AddSingleton<IClaimsService, ClaimsService>();
+
+            // Add cookie authentication
             services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
                 .AddCookie(options =>
                 {
@@ -72,6 +76,5 @@ namespace CMCS
                 options.AddPolicy("AcademicManager", policy => policy.RequireRole("AcademicManager"));
             });
         }
-
     }
 }

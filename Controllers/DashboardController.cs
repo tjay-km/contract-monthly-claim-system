@@ -1,7 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using CMCS.Models;
-using System.Collections.Generic;
+using CMCS.Services; // Add this using directive
 using System.Linq;
 
 namespace CMCS.Controllers
@@ -9,23 +9,24 @@ namespace CMCS.Controllers
     [Authorize]
     public class DashboardController : Controller
     {
-        private readonly List<Claim> _claims;
+        private readonly IClaimsService _claimsService;
 
-        public DashboardController(List<Claim> claims)
+        public DashboardController(IClaimsService claimsService)
         {
-            _claims = claims;
+            _claimsService = claimsService;
         }
 
         public IActionResult Index()
         {
+            var claims = _claimsService.GetClaims();
             if (User.IsInRole("Lecturer"))
             {
-                var lecturerClaims = _claims.Where(c => c.LecturerName == User.Identity.Name).ToList();
+                var lecturerClaims = claims.Where(c => c.LecturerName == User.Identity.Name).ToList();
                 return View("LecturerDashboard", lecturerClaims);
             }
             else if (User.IsInRole("ProgrammeCoordinator") || User.IsInRole("AcademicManager"))
             {
-                return View("ManagerDashboard", _claims);
+                return View("ManagerDashboard", claims);
             }
             return View("Index");
         }
@@ -34,10 +35,10 @@ namespace CMCS.Controllers
         [Authorize(Roles = "ProgrammeCoordinator,AcademicManager")]
         public IActionResult UpdateClaimStatus(int id, string status)
         {
-            var claim = _claims.FirstOrDefault(c => c.Id == id);
+            var claim = _claimsService.GetClaimById(id);
             if (claim != null)
             {
-                claim.Status = status;
+                _claimsService.UpdateClaimStatus(id, status);
                 return Json(new { success = true, message = $"Claim {id} status updated to {status}" });
             }
             return Json(new { success = false, message = "Claim not found" });
