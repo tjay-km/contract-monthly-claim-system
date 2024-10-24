@@ -6,33 +6,40 @@ namespace CMCS.Services
 {
     public class ClaimsService : IClaimsService
     {
-        private readonly List<Claim> _claims; // In-memory list to store claims
+        private readonly List<Claim> _claims;
 
         public ClaimsService(List<Claim> claims)
         {
-            _claims = claims; // Initialize the claims list
+            _claims = claims;
         }
 
-        // Method to get all claims
         public List<Claim> GetClaims()
         {
-            return _claims; // Return the entire list of claims
+            return _claims;
         }
 
-        // Method to get a specific claim by ID
         public Claim GetClaimById(int id)
         {
-            return _claims.FirstOrDefault(c => c.Id == id); // Return the claim if found, otherwise null
+            return _claims.FirstOrDefault(c => c.Id == id);
         }
 
-        // Method to update the status of a claim
         public void UpdateClaimStatus(int id, string status)
         {
-            var claim = GetClaimById(id); // Get the claim by ID
-            if (claim != null) // If the claim exists
+            var claim = GetClaimById(id);
+            if (claim != null)
             {
-                claim.Status = status; // Update the claim's status
+                claim.Status = status;
             }
+        }
+
+        public List<Claim> GetPendingClaims()
+        {
+            return _claims.Where(c => c.Status == "Pending").ToList();
+        }
+
+        public List<Claim> GetManagedClaims()
+        {
+            return _claims.Where(c => c.Status == "Approved" || c.Status == "Rejected").ToList();
         }
     }
 }

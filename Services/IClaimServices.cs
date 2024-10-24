@@ -5,8 +5,10 @@ namespace CMCS.Services
 {
     public interface IClaimsService
     {
-        List<Claim> GetClaims(); // Get all claims
-        Claim GetClaimById(int id); // Get a specific claim by ID
-        void UpdateClaimStatus(int id, string status); // Update claim status
+        List<Claim> GetClaims();
+        Claim GetClaimById(int id);
+        void UpdateClaimStatus(int id, string status);
+        List<Claim> GetPendingClaims();
+        List<Claim> GetManagedClaims();
     }
 }

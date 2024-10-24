@@ -30,6 +30,8 @@ namespace CMCS
             app.UseAuthentication();
             app.UseAuthorization();
 
+            app.UseCors("AllowAll");
+
             app.MapControllerRoute(
                 name: "default",
                 pattern: "{controller=Home}/{action=Index}/{id?}");
@@ -50,7 +52,8 @@ namespace CMCS
             services.AddSingleton<List<Claim>>(new List<Claim>());
 
             // Register the claims service if you have any logic to handle claims
-            services.AddSingleton<IClaimsService, ClaimsService>();
+            //services.AddSingleton<IClaimsService, ClaimsService>();
+            services.AddScoped<IClaimsService, ClaimsService>();
 
             services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
                 .AddCookie(options =>
@@ -65,6 +68,27 @@ namespace CMCS
                 options.AddPolicy("ProgrammeCoordinator", policy => policy.RequireRole("ProgrammeCoordinator"));
                 options.AddPolicy("AcademicManager", policy => policy.RequireRole("AcademicManager"));
             });
+
+            services.AddCors(options =>
+            {
+                options.AddPolicy("AllowAll", builder =>
+                {
+                    builder.AllowAnyOrigin()
+                           .AllowAnyMethod()
+                           .AllowAnyHeader();
+                });
+            });
+
+        }
+
+        public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
+        {
+            app.UseCors("AllowAll");
+
+            
+            // Remove the Browser Link configuration as it is not supported
+            //app.UseBrowserLink(options => options.Disabled = true);
+
         }
     }
 }

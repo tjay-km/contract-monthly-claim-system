@@ -1,17 +1,13 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using CMCS.Services;
+using Microsoft.AspNetCore.Mvc;
 
-namespace CMCS.Tests
+namespace CMCS.Controllers
 {
     public class ClaimsController : Controller
     {
-        private readonly IClaimService _claimService;
+        private readonly IClaimsService _claimService;
 
-        public ClaimsController(IClaimService claimService)
+        public ClaimsController(IClaimsService claimService)
         {
             _claimService = claimService;
         }
@@ -19,13 +15,22 @@ namespace CMCS.Tests
         [HttpPost]
         public IActionResult UpdateClaimStatus(int id, string status)
         {
-            var result = _claimService.UpdateStatus(id, status);
-            if (result)
+            // Validate input
+            if (id <= 0 || string.IsNullOrWhiteSpace(status))
             {
-                return Json(new { success = true, message = "Claim status updated successfully." });
+                return BadRequest(new { success = false, message = "Invalid input." });
             }
-            return Json(new { success = false, message = "Error updating claim status." });
+
+            // Update status
+            var claim = _claimService.GetClaimById(id);
+            if (claim == null)
+            {
+                return Json(new { success = false, message = "Error updating claim status." });
+            }
+
+            _claimService.UpdateClaimStatus(id, status);
+
+            return Json(new { success = true, message = "Claim status updated successfully." });
         }
     }
-
 }

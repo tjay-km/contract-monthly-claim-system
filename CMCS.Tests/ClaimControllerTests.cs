@@ -1,50 +1,81 @@
-﻿using CMCS.Tests;
+﻿using CMCS.Controllers;
+using CMCS.Models;
+using CMCS.Services;
 using Microsoft.AspNetCore.Mvc;
-using Moq;
+using System;
+using System.Collections.Generic;
 using Xunit;
 
-public class ClaimsControllerTests
+namespace CMCS.Tests
 {
-    private readonly Mock<IClaimService> _mockClaimService;
-    private readonly ClaimsController _controller;
-
-    public ClaimsControllerTests()
+    public class ClaimsControllerTests
     {
-        _mockClaimService = new Mock<IClaimService>();
-        _controller = new ClaimsController(_mockClaimService.Object);
-    }
+        private readonly List<Claim> _testClaims;
+        private readonly IClaimsService _claimsService; // Change to IClaimsService interface
+        private readonly ClaimsController _controller;
 
-    [Fact]
-    public void UpdateClaimStatus_ReturnsSuccess_WhenUpdateIsSuccessful()
-    {
-        // Arrange
-        int claimId = 1;
-        string status = "Approved";
-        _mockClaimService.Setup(s => s.UpdateStatus(claimId, status)).Returns(true);
+        public ClaimsControllerTests()
+        {
+            _testClaims = new List<Claim>
+            {
+                new Claim { Id = 1, LecturerName = "John Doe", Status = "Pending", DateSubmitted = DateTime.Now, HoursWorked = 10, HourlyRate = 50m },
+                new Claim { Id = 2, LecturerName = "Jane Smith", Status = "Approved", DateSubmitted = DateTime.Now.AddDays(-1), HoursWorked = 8, HourlyRate = 60m }
+            };
 
-        // Act
-        var result = _controller.UpdateClaimStatus(claimId, status) as JsonResult;
+            _claimsService = new ClaimsService(_testClaims); // Use concrete ClaimsService implementing IClaimsService
+            _controller = new ClaimsController(_claimsService); // Inject the service into the controller
+        }
 
-        // Assert
-        Assert.NotNull(result);
-        Assert.True((bool)result.Value.GetType().GetProperty("success").GetValue(result.Value));
-        Assert.Equal("Claim status updated successfully.", result.Value.GetType().GetProperty("message").GetValue(result.Value));
-    }
+        [Fact]
+        public void UpdateClaimStatus_ReturnsSuccess_WhenUpdateIsSuccessful()
+        {
+            // Arrange
+            int claimId = 1;
+            string status = "Approved";
 
-    [Fact]
-    public void UpdateClaimStatus_ReturnsError_WhenUpdateFails()
-    {
-        // Arrange
-        int claimId = 1;
-        string status = "Rejected";
-        _mockClaimService.Setup(s => s.UpdateStatus(claimId, status)).Returns(false);
+            // Act
+            var result = _controller.UpdateClaimStatus(claimId, status) as JsonResult;
 
-        // Act
-        var result = _controller.UpdateClaimStatus(claimId, status) as JsonResult;
+            // Assert
+            Assert.NotNull(result);
+            dynamic jsonResult = result.Value;
+            Assert.True((bool)jsonResult.success);
+            Assert.Equal("Claim status updated successfully.", (string)jsonResult.message);
 
-        // Assert
-        Assert.NotNull(result);
-        Assert.False((bool)result.Value.GetType().GetProperty("success").GetValue(result.Value));
-        Assert.Equal("Error updating claim status.", result.Value.GetType().GetProperty("message").GetValue(result.Value));
+            var updatedClaim = _claimsService.GetClaimById(claimId);
+            Assert.Equal(status, updatedClaim.Status);
+        }
+
+        [Fact]
+        public void UpdateClaimStatus_ReturnsError_WhenClaimNotFound()
+        {
+            // Arrange
+            int claimId = 99; // Non-existent ID
+            string status = "Approved";
+
+            // Act
+            var result = _controller.UpdateClaimStatus(claimId, status) as JsonResult;
+
+            // Assert
+            Assert.NotNull(result);
+            dynamic jsonResult = result.Value;
+            Assert.False((bool)jsonResult.success);
+            Assert.Equal("Error updating claim status.", (string)jsonResult.message);
+        }
+
+        [Theory]
+        [InlineData(0, "Approved")]
+        [InlineData(-1, "Rejected")]
+        [InlineData(1, "")]
+        [InlineData(1, null)]
+        public void UpdateClaimStatus_ReturnsBadRequest_WhenInputIsInvalid(int claimId, string status)
+        {
+            // Act
+            var result = _controller.UpdateClaimStatus(claimId, status);
+
+            // Assert
+            Assert.IsType<BadRequestObjectResult>(result); // Expecting BadRequest
+        }
+
     }
 }

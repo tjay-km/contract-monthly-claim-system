@@ -1,7 +1,8 @@
 ﻿using CMCS.Models;
-using CMCS.Services; // Ensure this using directive is included
+using CMCS.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System;
 using System.Linq;
 
 namespace CMCS.Controllers
@@ -20,19 +21,19 @@ namespace CMCS.Controllers
         {
             var viewModel = new DashboardViewModel();
 
-            var claims = _claimsService.GetClaims(); // Get claims from the service
-
             if (User.IsInRole("Lecturer"))
             {
-                viewModel.Claims = claims
+                viewModel.Claims = _claimsService.GetClaims()
                     .Where(c => c.LecturerName == User.Identity.Name)
                     .OrderByDescending(c => c.DateSubmitted)
                     .ToList();
             }
             else if (User.IsInRole("ProgrammeCoordinator") || User.IsInRole("AcademicManager"))
             {
-                viewModel.PendingClaims = claims
-                    .Where(c => c.Status == "Pending")
+                viewModel.PendingClaims = _claimsService.GetPendingClaims()
+                    .OrderByDescending(c => c.DateSubmitted)
+                    .ToList();
+                viewModel.ManagedClaims = _claimsService.GetManagedClaims()
                     .OrderByDescending(c => c.DateSubmitted)
                     .ToList();
             }
@@ -41,16 +42,25 @@ namespace CMCS.Controllers
         }
 
         [HttpPost]
+        [ValidateAntiForgeryToken]
         [Authorize(Roles = "ProgrammeCoordinator,AcademicManager")]
         public IActionResult UpdateClaimStatus(int id, string status)
         {
-            var claim = _claimsService.GetClaimById(id);
-            if (claim != null)
+            try
             {
-                _claimsService.UpdateClaimStatus(id, status);
-                return Json(new { success = true, message = $"Claim {id} status updated to {status}" });
+                var claim = _claimsService.GetClaimById(id);
+                if (claim != null)
+                {
+                    _claimsService.UpdateClaimStatus(id, status);
+                    return Json(new { success = true, message = $"Claim {id} status updated to {status}" });
+                }
+                return Json(new { success = false, message = "Claim not found" });
             }
-            return Json(new { success = false, message = "Claim not found" });
+            catch (Exception ex)
+            {
+                // Log the exception
+                return StatusCode(500, new { success = false, message = "An error occurred while processing your request." });
+            }
         }
     }
 }

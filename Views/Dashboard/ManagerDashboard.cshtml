@@ -5,9 +5,13 @@
 <table class="min-w-full bg-white border border-gray-200">
     <thead>
         <tr>
+            <th class="py-2 px-4 border-b">Date Submitted</th>
             <th class="py-2 px-4 border-b">Lecturer</th>
             <th class="py-2 px-4 border-b">Hours</th>
             <th class="py-2 px-4 border-b">Rate</th>
+            <th class="py-2 px-4 border-b">Notes</th>
+            <th class="py-2 px-4 border-b">Document</th>
+            <th class="py-2 px-4 border-b">Total</th>
             <th class="py-2 px-4 border-b">Status</th>
             <th class="py-2 px-4 border-b">Actions</th>
         </tr>
@@ -16,10 +20,15 @@
         @foreach (var claim in Model)
         {
             <tr>
+                <td class="py-2 px-4 border-b">@claim.DateSubmitted.ToShortDateString()</td>
                 <td class="py-2 px-4 border-b">@claim.LecturerName</td>
                 <td class="py-2 px-4 border-b">@claim.HoursWorked</td>
                 <td class="py-2 px-4 border-b">@claim.HourlyRate.ToString("C")</td>
+                <td class="py-2 px-4 border-b">@claim.AdditionalNotes</td>
+                <td class="py-2 px-4 border-b">@claim.SupportingDocumentPath</td>
+                <td class="py-2 px-4 border-b">@((Convert.ToDecimal(claim.HoursWorked) * claim.HourlyRate).ToString("C"))</td>
                 <td class="py-2 px-4 border-b">@claim.Status</td>
+                
                 <td class="py-2 px-4 border-b">
                     @if (claim.Status == "Pending")
                     {

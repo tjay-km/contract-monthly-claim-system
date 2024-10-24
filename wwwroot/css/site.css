@@ -105,6 +105,10 @@ button[type="submit"],
     border: 1px solid #f5c6cb;
 }
 
+.overflow-auto {
+    max-height: 300px;
+    overflow-y: auto;
+}
 /* Text Styles */
 .text-[#617189] {
     text-align: center;

@@ -15,5 +15,11 @@ namespace CMCS.Models
 
         public IFormFile SupportingDocument { get; set; }
         public string? SupportingDocumentPath { get; set; } // To store the file path
+
+        // For the test class
+        public decimal CalculateTotalAmount()
+        {
+            return HoursWorked * HourlyRate;
+        }
     }
 }
