@@ -1,4 +1,4 @@
-﻿@model CMCS.Models.Claim
+@model CMCS.Models.Claim
 
 @{
     ViewData["Title"] = "Submit Claim";
@@ -38,13 +38,15 @@
 
                 <div class="mb-4">
                     <label asp-for="HoursWorked" class="block text-gray-700 text-sm font-bold mb-2">Hours Worked</label>
-                    <input asp-for="HoursWorked" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" type="number" step="0.5" required>
+                    <input asp-for="HoursWorked" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" type="number" step="0.5" min="0.5" max="10000" required>
+                    <span class="text-gray-600 text-xs">Enter hours worked (minimum 0.1)</span>
                     <span asp-validation-for="HoursWorked" class="text-red-500 text-xs italic"></span>
                 </div>
 
                 <div class="mb-4">
                     <label asp-for="HourlyRate" class="block text-gray-700 text-sm font-bold mb-2">Hourly Rate</label>
-                    <input asp-for="HourlyRate" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" type="number" step="0.01" required>
+                    <input asp-for="HourlyRate" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" type="number" step="0.01" min="0.1" max="10000" required>
+                    <span class="text-gray-600 text-xs">Enter rate per hour (minimum 0.1)</span>
                     <span asp-validation-for="HourlyRate" class="text-red-500 text-xs italic"></span>
                 </div>
 
@@ -56,9 +58,8 @@
 
                 <div class="mb-4">
                     <label for="supportingDocument" class="block text-gray-700 text-sm font-bold mb-2">Supporting Document</label>
-                    <input type="file" asp-for="SupportingDocumentPath" id="supportingDocument" name="supportingDocument" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" accept=".pdf,.docx,.xlsx">
+                    <input type="file" name="supportingDocument" id="supportingDocument" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" accept=".pdf,.docx,.xlsx">
                     <p class="text-sm text-gray-600 mt-1">Max file size: 5MB. Allowed formats: .pdf, .docx, .xlsx</p>
-                    <span asp-validation-for="SupportingDocumentPath" class="text-red-500 text-xs italic"></span>
                 </div>
 
                 <div class="flex items-center justify-between">

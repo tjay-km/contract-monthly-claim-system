@@ -31,39 +31,56 @@
                             <th class="px-4 py-2">Total Amount</th>
                             <th class="px-4 py-2">Status</th>
                             <th class="px-4 py-2">Supporting Document</th>
-                            <th class="px-4 py-2">Actions</th>
+                            <th class="px-4 py-2">Actions/Notes</th>
                         </tr>
                     </thead>
                     <tbody>
                         @if (Model != null && Model.Any())
-
                         {
-
                             foreach (var claim in Model)
-
                             {
-                                <tr>
+                                <tr class="@(claim.Status == "Rejected" ? "bg-red-50" : claim.Status == "Approved" ? "bg-green-50" : "")">
                                     <td class="px-4 py-2">@claim.Id</td>
                                     <td class="px-4 py-2">@claim.LecturerName</td>
                                     <td class="px-4 py-2">@claim.HoursWorked</td>
                                     <td class="px-4 py-2">@claim.HourlyRate</td>
                                     <td class="px-4 py-2">@((decimal)claim.HoursWorked * claim.HourlyRate)</td>
-                                    <td class="px-4 py-2">@claim.Status</td>
+                                    <td class="px-4 py-2">
+                                        <span class="@(claim.Status == "Rejected" ? "text-red-600" : claim.Status == "Approved" ? "text-green-600" : "text-yellow-600")">
+                                            @claim.Status
+                                        </span>
+                                    </td>
                                     <td class="px-4 py-2"><a href="#" class="text-indigo-600">Document.pdf</a></td>
                                     <td class="px-4 py-2">
-                                        <form method="post" action="/Claims/ApproveRejectClaim" class="inline">
-                                            <button type="submit" name="approve" value="true" class="btn btn-success btn-sm">Approve</button>
-                                            <button type="submit" name="approve" value="false" class="btn btn-danger btn-sm">Reject</button>
-                                            <input type="hidden" name="Id" value="@claim.Id" />
-                                        </form>
+                                        @if (claim.Status == "Pending")
+                                        {
+                                            <div class="flex items-center space-x-2">
+                                                <form asp-controller="Claim" asp-action="Approve" method="post" class="inline">
+                                                    <input type="hidden" name="id" value="@claim.Id" />
+                                                    <button type="submit" class="bg-green-500 hover:bg-green-700 text-white font-bold py-1 px-2 rounded text-sm">
+                                                        <i class="fas fa-check mr-1"></i>Approve
+                                                    </button>
+                                                </form>
+                                                <form asp-controller="Claim" asp-action="InitiateReject" method="post" class="inline">
+                                                    <input type="hidden" name="id" value="@claim.Id" />
+                                                    <button type="submit" class="bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-2 rounded text-sm inline-flex items-center">
+                                                        <i class="fas fa-times mr-1"></i>Reject
+                                                    </button>
+                                                </form>
+                                            </div>
+                                        }
+                                        else if (claim.Status == "Rejected" && !string.IsNullOrEmpty(claim.RejectionReason))
+                                        {
+                                            <div class="text-red-600">
+                                                <i class="fas fa-info-circle mr-1"></i>
+                                                Reason: @claim.RejectionReason
+                                            </div>
+                                        }
                                     </td>
                                 </tr>
                             }
-
                         }
-
                         else
-
                         {
                             <tr>
                                 <td colspan="8" class="text-center px-4 py-2">No claims available.</td>

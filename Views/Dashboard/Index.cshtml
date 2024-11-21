@@ -115,9 +115,12 @@
                                     <button onclick="updateClaimStatus(@claim.Id, 'Approved')" class="bg-green-500 hover:bg-green-700 text-white font-bold py-1 px-2 rounded mr-2">
                                         Approve
                                     </button>
-                                    <button onclick="updateClaimStatus(@claim.Id, 'Rejected')" class="bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-2 rounded">
-                                        Reject
-                                    </button>
+                                    <form asp-controller="Claim" asp-action="InitiateReject" method="post" class="inline">
+                                        <input type="hidden" name="id" value="@claim.Id" />
+                                        <button type="submit" class="bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-2 rounded">
+                                            Reject
+                                        </button>
+                                    </form>
                                 </td>
                             </tr>
                         }
@@ -142,9 +145,12 @@
                             <button onclick="updateClaimStatus(@claim.Id, 'Approved')" class="bg-green-500 hover:bg-green-700 text-white font-bold py-1 px-2 rounded mr-2">
                                 Approve
                             </button>
-                            <button onclick="updateClaimStatus(@claim.Id, 'Rejected')" class="bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-2 rounded">
-                                Reject
-                            </button>
+                            <form asp-controller="Claim" asp-action="InitiateReject" method="post" class="inline">
+                                <input type="hidden" name="id" value="@claim.Id" />
+                                <button type="submit" class="bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-2 rounded">
+                                    Reject
+                                </button>
+                            </form>
                         </div>
                     </div>
                 }
@@ -223,6 +229,11 @@
 @section Scripts {
     <script>
         function updateClaimStatus(id, status) {
+            if (status !== 'Approved') {
+                alert('Invalid operation. Rejections must go through the dedicated rejection flow.');
+                return;
+            }
+
             fetch('@Url.Action("UpdateClaimStatus", "Dashboard")', {
                 method: 'POST',
                 headers: {

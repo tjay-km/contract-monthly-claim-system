@@ -1,0 +1,83 @@
+@model CMCS.Models.Claim
+
+@{
+    ViewData["Title"] = "Reject Claim";
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin="" />
+    <link rel="stylesheet" href="~/css/site.css" />
+    <title>Reject Claim</title>
+</head>
+<body class="bg-slate-50 min-h-screen flex flex-col">
+    <div class="flex-grow flex items-center justify-center px-4 sm:px-6 lg:px-8">
+        <div class="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4 max-w-2xl w-full">
+            <h2 class="text-2xl font-bold mb-6 text-center">Reject Claim</h2>
+
+            <div class="mb-6 p-4 bg-gray-50 rounded">
+                <h3 class="text-lg font-semibold mb-4">Claim Details</h3>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <p class="text-sm font-medium text-gray-500">Claim ID</p>
+                        <p class="text-gray-900">@Model.Id</p>
+                    </div>
+                    <div>
+                        <p class="text-sm font-medium text-gray-500">Lecturer Name</p>
+                        <p class="text-gray-900">@Model.LecturerName</p>
+                    </div>
+                    <div>
+                        <p class="text-sm font-medium text-gray-500">Hours Worked</p>
+                        <p class="text-gray-900">@Model.HoursWorked</p>
+                    </div>
+                    <div>
+                        <p class="text-sm font-medium text-gray-500">Hourly Rate</p>
+                        <p class="text-gray-900">@Model.HourlyRate</p>
+                    </div>
+                    <div>
+                        <p class="text-sm font-medium text-gray-500">Total Amount</p>
+                        <p class="text-gray-900">@(Model.HoursWorked * Model.HourlyRate)</p>
+                    </div>
+                    <div>
+                        <p class="text-sm font-medium text-gray-500">Date Submitted</p>
+                        <p class="text-gray-900">@Model.DateSubmitted.ToShortDateString()</p>
+                    </div>
+                    @if (!string.IsNullOrEmpty(Model.AdditionalNotes))
+                    {
+                        <div class="col-span-2">
+                            <p class="text-sm font-medium text-gray-500">Additional Notes</p>
+                            <p class="text-gray-900">@Model.AdditionalNotes</p>
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <form asp-controller="Claim" asp-action="ConfirmReject" method="post">
+                <input type="hidden" asp-for="Id" />
+                
+                <div class="mb-4">
+                    <label for="rejectionReason" class="block text-gray-700 text-sm font-bold mb-2">Rejection Reason</label>
+                    <textarea name="rejectionReason" id="rejectionReason" rows="3" 
+                              class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                              required></textarea>
+                    <p class="text-sm text-gray-500 mt-1">Please provide a reason for rejecting this claim.</p>
+                </div>
+
+                <div class="flex items-center justify-between">
+                    <a href="@Url.Action("ReviewClaims", "Claim")" 
+                       class="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
+                        Cancel
+                    </a>
+                    <button type="submit" 
+                            class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
+                        Confirm Rejection
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</body>
+</html>
