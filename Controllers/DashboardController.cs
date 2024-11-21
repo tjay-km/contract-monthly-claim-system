@@ -1,9 +1,10 @@
-﻿using CMCS.Models;
+using CMCS.Models;
 using CMCS.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace CMCS.Controllers
 {
@@ -17,23 +18,27 @@ namespace CMCS.Controllers
             _claimsService = claimsService;
         }
 
-        public IActionResult Index()
+        public async Task<IActionResult> Index()
         {
             var viewModel = new DashboardViewModel();
 
             if (User.IsInRole("Lecturer"))
             {
-                viewModel.Claims = _claimsService.GetClaims()
+                var claims = await _claimsService.GetAllClaimsAsync();
+                viewModel.Claims = claims
                     .Where(c => c.LecturerName == User.Identity.Name)
                     .OrderByDescending(c => c.DateSubmitted)
                     .ToList();
             }
             else if (User.IsInRole("ProgrammeCoordinator") || User.IsInRole("AcademicManager"))
             {
-                viewModel.PendingClaims = _claimsService.GetPendingClaims()
+                var allClaims = await _claimsService.GetAllClaimsAsync();
+                viewModel.PendingClaims = allClaims
+                    .Where(c => c.Status == "Pending")
                     .OrderByDescending(c => c.DateSubmitted)
                     .ToList();
-                viewModel.ManagedClaims = _claimsService.GetManagedClaims()
+                viewModel.ManagedClaims = allClaims
+                    .Where(c => c.Status == "Approved" || c.Status == "Rejected")
                     .OrderByDescending(c => c.DateSubmitted)
                     .ToList();
             }
@@ -44,14 +49,21 @@ namespace CMCS.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "ProgrammeCoordinator,AcademicManager")]
-        public IActionResult UpdateClaimStatus(int id, string status)
+        public async Task<IActionResult> UpdateClaimStatus(int id, string status)
         {
             try
             {
-                var claim = _claimsService.GetClaimById(id);
+                // Only allow approval through this endpoint
+                if (status != "Approved")
+                {
+                    return Json(new { success = false, message = "This endpoint only supports claim approval. For rejections, please use the dedicated rejection flow." });
+                }
+
+                var claim = await _claimsService.GetClaimByIdAsync(id);
                 if (claim != null)
                 {
-                    _claimsService.UpdateClaimStatus(id, status);
+                    claim.Status = status;
+                    await _claimsService.UpdateClaimAsync(claim);
                     return Json(new { success = true, message = $"Claim {id} status updated to {status}" });
                 }
                 return Json(new { success = false, message = "Claim not found" });

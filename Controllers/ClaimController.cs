@@ -1,4 +1,4 @@
-﻿using System.Linq;
+using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
@@ -7,6 +7,8 @@ using Microsoft.Extensions.Logging;
 using CMCS.Models;
 using System.Collections.Generic;
 using System.IO;
+using CMCS.Services;
+using System.Security.Claims;
 
 namespace CMCS.Controllers
 {
@@ -16,18 +18,13 @@ namespace CMCS.Controllers
     [Authorize]
     public class ClaimController : Controller
     {
-        private readonly List<Claim> _claims; // List of claims
-        private readonly ILogger<ClaimController> _logger; // Logger instance
+        private readonly ILogger<ClaimController> _logger;
+        private readonly IClaimsService _claimsService;
 
-        /// <summary>
-        /// Initializes a new instance of the <see cref="ClaimController"/> class.
-        /// </summary>
-        /// <param name="claims">List of claims.</param>
-        /// <param name="logger">Logger instance.</param>
-        public ClaimController(List<Claim> claims, ILogger<ClaimController> logger)
+        public ClaimController(IClaimsService claimsService, ILogger<ClaimController> logger)
         {
-            _claims = claims ?? new List<Claim>(); // Initialize claims list if null
-            _logger = logger; // Initialize logger instance
+            _claimsService = claimsService;
+            _logger = logger;
         }
 
         /// <summary>
@@ -48,60 +45,40 @@ namespace CMCS.Controllers
         /// <returns>View result or redirect result.</returns>
         [Authorize(Roles = "Lecturer")]
         [HttpPost]
-        public async Task<IActionResult> Submit(Claim claim, IFormFile? supportingDocument) // Allow supportingDocument to be null
+        public async Task<IActionResult> Submit(CMCS.Models.Claim claim, IFormFile? supportingDocument)
         {
-            // Check if model state is valid
             if (!ModelState.IsValid)
             {
-                // Log model state errors
                 foreach (var error in ModelState.Values.SelectMany(v => v.Errors))
                 {
                     _logger.LogError(error.ErrorMessage);
                 }
-                return View(claim); // Return view with errors
+                return View(claim);
             }
 
-            // Check if supporting document is present
-            if (supportingDocument != null && supportingDocument.Length > 0) // Only save if a file is uploaded
+            if (supportingDocument != null && supportingDocument.Length > 0)
             {
-                // Save supporting document
                 claim.SupportingDocumentPath = await SaveSupportingDocument(supportingDocument);
-            }
-            else
-            {
-                claim.SupportingDocumentPath = null; // or leave it unset
             }
 
             try
             {
-                // Set claim properties
                 claim.LecturerName = User.Identity.Name;
                 claim.DateSubmitted = DateTime.Now;
                 claim.Status = "Pending";
 
-                // Add claim to list
-                claim.Id = _claims.Count + 1;
-                _claims.Add(claim);
+                await _claimsService.CreateClaimAsync(claim);
 
-                // Log claim submission
                 _logger.LogInformation($"Claim submitted by {claim.LecturerName} on {claim.DateSubmitted}.");
-
-                // Set success message
                 TempData["SuccessMessage"] = "Claim submitted successfully!";
-
-                // Redirect to dashboard view
                 return RedirectToAction("Dashboard");
             }
             catch (Exception ex)
             {
-                // Log exception
                 _logger.LogError(ex, "Error submitting claim");
-
-                // Add model state error
                 ModelState.AddModelError("", "An error occurred while submitting the claim. Please try again.");
             }
 
-            // Return view with errors
             return View(claim);
         }
 
@@ -112,28 +89,20 @@ namespace CMCS.Controllers
         /// <returns>Path to saved document.</returns>
         private async Task<string> SaveSupportingDocument(IFormFile file)
         {
-            // Get upload path
             var uploadPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads");
-
-            // Create upload directory if it doesn't exist
             if (!Directory.Exists(uploadPath))
             {
                 Directory.CreateDirectory(uploadPath);
             }
 
-            // Generate file name
             var fileName = Path.GetRandomFileName() + Path.GetExtension(file.FileName);
-
-            // Get file path
             var filePath = Path.Combine(uploadPath, fileName);
 
-            // Save file
             using (var stream = new FileStream(filePath, FileMode.Create))
             {
                 await file.CopyToAsync(stream);
             }
 
-            // Return path to saved document
             return $"/uploads/{fileName}";
         }
 
@@ -141,13 +110,14 @@ namespace CMCS.Controllers
         /// Controller for managing the dashboard functionality for lecturers.
         /// </summary>
         [Authorize(Roles = "Lecturer")]
-        public IActionResult Dashboard()
+        public async Task<IActionResult> Dashboard()
         {
+            var claims = await _claimsService.GetAllClaimsAsync();
             var model = new DashboardViewModel
             {
-                Claim = new Claim(),
-                Claims = _claims.Where(c => c.LecturerName == User.Identity.Name).ToList(),
-                PendingClaims = _claims.Where(c => c.Status == "Pending").ToList()
+                Claim = new CMCS.Models.Claim(),
+                Claims = claims.Where(c => c.LecturerName == User.Identity.Name).ToList(),
+                PendingClaims = claims.Where(c => c.Status == "Pending").ToList()
             };
 
             ViewBag.SuccessMessage = TempData["SuccessMessage"];
@@ -161,41 +131,64 @@ namespace CMCS.Controllers
         /// <returns>A redirect to the claims list.</returns>
         [Authorize(Roles = "ProgrammeCoordinator,AcademicManager")]
         [HttpPost]
-        public IActionResult Approve(int id)
+        public async Task<IActionResult> Approve(int id)
         {
-            var claim = _claims.FirstOrDefault(c => c.Id == id);
+            var claim = await _claimsService.GetClaimByIdAsync(id);
             if (claim == null)
             {
                 return NotFound("Claim not found.");
             }
 
-            claim.Status = "Approved"; // Update claim status
+            claim.Status = "Approved";
+            await _claimsService.UpdateClaimAsync(claim);
             _logger.LogInformation($"Claim ID {id} approved.");
 
-            TempData["SuccessMessage"] = $"Claim ID {id} approved successfully."; // Success message
-            return RedirectToAction("ListClaims"); // Redirect to the claims list
+            TempData["SuccessMessage"] = $"Claim ID {id} approved successfully.";
+            return RedirectToAction("ReviewClaims");
         }
 
         /// <summary>
-        /// Rejects a claim by updating its status.
+        /// Shows the rejection page for a claim.
         /// </summary>
-        /// <param name="id">The ID of the claim to reject.</param>
-        /// <returns>A redirect to the claims list.</returns>
         [Authorize(Roles = "ProgrammeCoordinator,AcademicManager")]
         [HttpPost]
-        public IActionResult Reject(int id)
+        public async Task<IActionResult> InitiateReject(int id)
         {
-            var claim = _claims.FirstOrDefault(c => c.Id == id);
+            var claim = await _claimsService.GetClaimByIdAsync(id);
             if (claim == null)
             {
                 return NotFound("Claim not found.");
             }
 
-            claim.Status = "Rejected"; // Update claim status
-            _logger.LogInformation($"Claim ID {id} rejected.");
+            return View("Reject", claim);
+        }
 
-            TempData["SuccessMessage"] = $"Claim ID {id} rejected successfully."; // Success message
-            return RedirectToAction("ListClaims"); // Redirect to the claims list
+        /// <summary>
+        /// Handles the confirmation of claim rejection.
+        /// </summary>
+        [Authorize(Roles = "ProgrammeCoordinator,AcademicManager")]
+        [HttpPost]
+        public async Task<IActionResult> ConfirmReject(int id, string rejectionReason)
+        {
+            if (string.IsNullOrWhiteSpace(rejectionReason))
+            {
+                TempData["ErrorMessage"] = "A rejection reason is required.";
+                return RedirectToAction("InitiateReject", new { id });
+            }
+
+            var claim = await _claimsService.GetClaimByIdAsync(id);
+            if (claim == null)
+            {
+                return NotFound("Claim not found.");
+            }
+
+            claim.Status = "Rejected";
+            claim.RejectionReason = rejectionReason;
+            await _claimsService.UpdateClaimAsync(claim);
+
+            _logger.LogInformation($"Claim ID {id} rejected with reason: {rejectionReason}");
+            TempData["SuccessMessage"] = "Claim rejected successfully.";
+            return RedirectToAction("ReviewClaims");
         }
 
         /// <summary>
@@ -203,10 +196,11 @@ namespace CMCS.Controllers
         /// </summary>
         /// <returns>The list of claims.</returns>
         [Authorize(Roles = "ProgrammeCoordinator,AcademicManager")]
-        public IActionResult ListClaims()
+        public async Task<IActionResult> ListClaims()
         {
-            ViewBag.SuccessMessage = TempData["SuccessMessage"]; // Display success message if exists
-            return View(_claims); // Return all claims stored in memory
+            ViewBag.SuccessMessage = TempData["SuccessMessage"];
+            var claims = await _claimsService.GetAllClaimsAsync();
+            return View(claims);
         }
 
         /// <summary>
@@ -215,9 +209,9 @@ namespace CMCS.Controllers
         /// <param name="id">The ID of the claim.</param>
         /// <returns>The downloaded document or a "Not Found" response if the document is not found.</returns>
         [Authorize(Roles = "ProgrammeCoordinator,AcademicManager,Lecturer")]
-        public IActionResult DownloadDocument(int id)
+        public async Task<IActionResult> DownloadDocument(int id)
         {
-            var claim = _claims.FirstOrDefault(c => c.Id == id);
+            var claim = await _claimsService.GetClaimByIdAsync(id);
             if (claim == null || string.IsNullOrEmpty(claim.SupportingDocumentPath))
             {
                 return NotFound("Document not found.");
@@ -230,7 +224,7 @@ namespace CMCS.Controllers
             }
 
             var fileName = Path.GetFileName(filePath);
-            var mimeType = "application/octet-stream"; // Default MIME type
+            var mimeType = "application/octet-stream";
 
             return PhysicalFile(filePath, mimeType, fileName);
         }
