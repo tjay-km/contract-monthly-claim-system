@@ -171,6 +171,7 @@
                             <th class="px-4 py-2">Notes</th>
                             <th class="px-4 py-2">Supporting Document</th>
                             <th class="px-4 py-2">Status</th>
+                            <th class="px-4 py-2">Rejection Reason</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -193,6 +194,12 @@
                                     <span class="@(claim.Status == "Approved" ? "text-green-500" : "text-red-500")">
                                         @claim.Status
                                     </span>
+                                </td>
+                                <td class="border px-4 py-2 overflow-auto break-words max-w-xs">
+                                    @if (claim.Status == "Rejected")
+                                    {
+                                        <span class="text-red-500">@claim.RejectionReason</span>
+                                    }
                                 </td>
                             </tr>
                         }
@@ -219,6 +226,13 @@
                                 @claim.Status
                             </span>
                         </p>
+                        @if (claim.Status == "Rejected")
+                        {
+                            <p>
+                                <strong>Rejection Reason:</strong>
+                                <span class="text-red-500">@claim.RejectionReason</span>
+                            </p>
+                        }
                     </div>
                 }
             </div>

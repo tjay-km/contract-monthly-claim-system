@@ -29,6 +29,7 @@
                             <th class="px-4 py-2">Total Amount</th>
                             <th class="px-4 py-2">Status</th>
                             <th class="px-4 py-2">Actions</th>
+                            <th class="px-4 py-2">Rejection Reason</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -52,6 +53,12 @@
 
                                         {
                                             <a href="@Url.Action("DownloadDocument", "Claim", new { id = claim.Id })" class="text-blue-500 hover:text-blue-700">Download Document</a>
+                                        }
+                                    </td>
+                                    <td class="border px-4 py-2">
+                                        @if (claim.Status == "Rejected" && !string.IsNullOrEmpty(claim.RejectionReason))
+                                        {
+                                            <span class="text-red-500">@claim.RejectionReason</span>
                                         }
                                     </td>
                                 </tr>
@@ -84,6 +91,10 @@
 
                             {
                                 <a href="@Url.Action("DownloadDocument", "Claim", new { id = claim.Id })" class="text-blue-500 hover:text-blue-700">Download Document</a>
+                            }
+                            @if (claim.Status == "Rejected" && !string.IsNullOrEmpty(claim.RejectionReason))
+                            {
+                                <p><strong>Rejection Reason:</strong> <span class="text-red-500">@claim.RejectionReason</span></p>
                             }
                         </div>
                     }

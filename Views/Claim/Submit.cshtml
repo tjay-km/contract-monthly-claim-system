@@ -4,71 +4,120 @@
     ViewData["Title"] = "Submit Claim";
 }
 
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin="" />
-    <link rel="stylesheet" href="~/css/site.css" />
-    <title>Submit Claim</title>
-</head>
-<body class="bg-slate-50 min-h-screen flex flex-col">
-    <div class="flex-grow flex items-center justify-center px-4 sm:px-6 lg:px-8">
-        <div class="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4">
-            <h2 class="text-2xl font-bold mb-4">Submit New Claim</h2>
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h3 class="card-title mb-0">Submit New Claim</h3>
+                </div>
+                <div class="card-body">
+                    <form asp-action="Submit" method="post" enctype="multipart/form-data" id="claimForm" class="needs-validation" novalidate>
+                        <div asp-validation-summary="ModelOnly" class="text-danger"></div>
 
-            @if (!ViewData.ModelState.IsValid)
-            {
-                <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
-                    <ul>
-                        @foreach (var modelState in ViewData.ModelState.Values)
-                        {
-                            foreach (var error in modelState.Errors)
-                            {
-                                <li>@error.ErrorMessage</li>
-                            }
-                        }
+                        <div class="form-group mb-3">
+                            <label asp-for="LecturerName" class="control-label"></label>
+                            <input asp-for="LecturerName" class="form-control" value="@User.Identity.Name" readonly />
+                            <span asp-validation-for="LecturerName" class="text-danger"></span>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group mb-3">
+                                    <label asp-for="HoursWorked" class="control-label"></label>
+                                    <input asp-for="HoursWorked" class="form-control" type="number" step="0.5" min="0.5" max="2000" id="hoursWorked" />
+                                    <span asp-validation-for="HoursWorked" class="text-danger"></span>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group mb-3">
+                                    <label asp-for="HourlyRate" class="control-label"></label>
+                                    <input asp-for="HourlyRate" class="form-control" type="number" step="0.01" min="1" max="20000" id="hourlyRate" />
+                                    <span asp-validation-for="HourlyRate" class="text-danger"></span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-group mb-3">
+                            <label asp-for="TotalAmount" class="control-label"></label>
+                            <div class="input-group">
+                                <span class="input-group-text">R</span>
+                                <input type="text" id="totalAmount" class="form-control" readonly />
+                            </div>
+                        </div>
+
+                        <div class="form-group mb-3">
+                            <label asp-for="DateSubmitted" class="control-label"></label>
+                            <input asp-for="DateSubmitted" class="form-control" type="date" value="@DateTime.Now.ToString("yyyy-MM-dd")" />
+                            <span asp-validation-for="DateSubmitted" class="text-danger"></span>
+                        </div>
+
+                        <div class="form-group mb-3">
+                            <label asp-for="AdditionalNotes" class="control-label"></label>
+                            <textarea asp-for="AdditionalNotes" class="form-control" rows="4"></textarea>
+                            <span asp-validation-for="AdditionalNotes" class="text-danger"></span>
+                            <small class="form-text text-muted">Please provide details about the work performed (10-500 characters)</small>
+                        </div>
+
+                        <div class="form-group mb-3">
+                            <label asp-for="SupportingDocument" class="control-label"></label>
+                            <input type="file" asp-for="SupportingDocument" class="form-control" accept=".pdf,.doc,.docx" />
+                            <span asp-validation-for="SupportingDocument" class="text-danger"></span>
+                            <small class="form-text text-muted">Accepted file types: PDF, DOC, DOCX</small>
+                        </div>
+
+                        <div class="form-group mt-4 d-flex justify-content-between">
+                            <a asp-action="Dashboard" class="btn btn-secondary"><i class="bi bi-arrow-left"></i> Back to Dashboard</a>
+                            <button type="submit" class="btn btn-success"><i class="bi bi-check-circle"></i> Submit Claim</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card shadow">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">Claim Guidelines</h5>
+                </div>
+                <div class="card-body">
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item">
+                            <i class="bi bi-check-circle-fill text-success me-2"></i>
+                            Hours worked: 0.5 - 2000 hours
+                        </li>
+                        <li class="list-group-item">
+                            <i class="bi bi-check-circle-fill text-success me-2"></i>
+                            Hourly rate: R1 - R20,000
+                        </li>
+                        <li class="list-group-item">
+                            <i class="bi bi-check-circle-fill text-success me-2"></i>
+                            Notes: 10-500 characters
+                        </li>
+                        <li class="list-group-item">
+                            <i class="bi bi-check-circle-fill text-success me-2"></i>
+                            Files: PDF, DOC, or DOCX
+                        </li>
                     </ul>
                 </div>
-            }
-
-            <form asp-controller="Claim" asp-action="Submit" method="post" enctype="multipart/form-data">
-                <input type="hidden" asp-for="LecturerName" value="@User.Identity.Name" />
-
-                <div class="mb-4">
-                    <label asp-for="HoursWorked" class="block text-gray-700 text-sm font-bold mb-2">Hours Worked</label>
-                    <input asp-for="HoursWorked" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" type="number" step="0.5" min="0.5" max="10000" required>
-                    <span class="text-gray-600 text-xs">Enter hours worked (minimum 0.1)</span>
-                    <span asp-validation-for="HoursWorked" class="text-red-500 text-xs italic"></span>
-                </div>
-
-                <div class="mb-4">
-                    <label asp-for="HourlyRate" class="block text-gray-700 text-sm font-bold mb-2">Hourly Rate</label>
-                    <input asp-for="HourlyRate" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" type="number" step="0.01" min="0.1" max="10000" required>
-                    <span class="text-gray-600 text-xs">Enter rate per hour (minimum 0.1)</span>
-                    <span asp-validation-for="HourlyRate" class="text-red-500 text-xs italic"></span>
-                </div>
-
-                <div class="mb-4">
-                    <label asp-for="AdditionalNotes" class="block text-gray-700 text-sm font-bold mb-2">Additional Notes</label>
-                    <textarea asp-for="AdditionalNotes" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" rows="3"></textarea>
-                    <span asp-validation-for="AdditionalNotes" class="text-red-500 text-xs italic"></span>
-                </div>
-
-                <div class="mb-4">
-                    <label for="supportingDocument" class="block text-gray-700 text-sm font-bold mb-2">Supporting Document</label>
-                    <input type="file" name="supportingDocument" id="supportingDocument" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" accept=".pdf,.docx,.xlsx">
-                    <p class="text-sm text-gray-600 mt-1">Max file size: 5MB. Allowed formats: .pdf, .docx, .xlsx</p>
-                </div>
-
-                <div class="flex items-center justify-between">
-                    <button type="submit" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
-                        Submit Claim
-                    </button>
-                </div>
-            </form>
+            </div>
         </div>
     </div>
-</body>
-</html>
+</div>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+    <script>
+        $(document).ready(function() {
+            function calculateTotal() {
+                const hours = parseFloat($('#hoursWorked').val()) || 0;
+                const rate = parseFloat($('#hourlyRate').val()) || 0;
+                const total = (hours * rate).toFixed(2);
+                $('#totalAmount').val('R ' + total);
+            }
+
+            $('#hoursWorked, #hourlyRate').on('input', calculateTotal);
+            calculateTotal();
+        });
+    </script>
+}
