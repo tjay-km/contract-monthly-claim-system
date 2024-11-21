@@ -1,34 +1,43 @@
-﻿using CMCS.Models; // Replace with your actual namespace
+using CMCS.Models;
+using CMCS.Data;
+using Microsoft.EntityFrameworkCore;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using System.Linq;
 
 namespace CMCS.Services
 {
-    public class DocumentService
+    public class DocumentService : IDocumentService
     {
-        private List<ClaimDocument> claimDocuments = new List<ClaimDocument>(); // In-memory list
+        private readonly ApplicationDbContext _context;
 
-        // Add a new document
-        public int AddClaimDocument(ClaimDocument claimDocument)
+        public DocumentService(ApplicationDbContext context)
         {
-            claimDocument.Id = claimDocuments.Count + 1; // Generate Id manually
-            claimDocuments.Add(claimDocument);
+            _context = context;
+        }
+
+        public async Task<int> AddClaimDocument(ClaimDocument claimDocument)
+        {
+            _context.ClaimDocuments.Add(claimDocument);
+            await _context.SaveChangesAsync();
             return claimDocument.Id;
         }
 
-        // Delete a document
-        public void DeleteClaimDocument(int claimDocumentId)
+        public async Task<List<ClaimDocument>> GetClaimDocuments(int claimId)
         {
-            var claimDocument = claimDocuments.FirstOrDefault(x => x.Id == claimDocumentId);
+            return await _context.ClaimDocuments
+                .Where(x => x.ClaimId == claimId)
+                .ToListAsync();
+        }
+
+        public async Task DeleteClaimDocument(int claimDocumentId)
+        {
+            var claimDocument = await _context.ClaimDocuments.FindAsync(claimDocumentId);
             if (claimDocument != null)
             {
-                claimDocuments.Remove(claimDocument);
+                _context.ClaimDocuments.Remove(claimDocument);
+                await _context.SaveChangesAsync();
             }
         }
-
-        // Get documents for a claim
-        public List<ClaimDocument> GetClaimDocuments(int claimId)
-        {
-            return claimDocuments.Where(x => x.ClaimId == claimId).ToList();
-        }
-
-}
+    }
 }
