@@ -2,93 +2,114 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using CMCS.Models;
+using CMCS.Data;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Authentication.Cookies;
-using System.Collections.Generic;
+using Microsoft.EntityFrameworkCore;
 using CMCS.Services;
 
-namespace CMCS
+var builder = WebApplication.CreateBuilder(args);
+
+// Add services to the container
+builder.Services.AddControllersWithViews();
+
+// Configure SQL Server
+builder.Services.AddDbContext<ApplicationDbContext>(options =>
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"),
+        sqlOptions => sqlOptions.EnableRetryOnFailure(
+            maxRetryCount: 5,
+            maxRetryDelay: TimeSpan.FromSeconds(30),
+            errorNumbersToAdd: null)));
+
+// Configure Identity
+builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options => {
+    options.Password.RequireDigit = true;
+    options.Password.RequireLowercase = true;
+    options.Password.RequireUppercase = true;
+    options.Password.RequireNonAlphanumeric = true;
+    options.Password.RequiredLength = 8;
+})
+.AddEntityFrameworkStores<ApplicationDbContext>()
+.AddDefaultTokenProviders();
+
+// Register services
+builder.Services.AddScoped<IClaimsService, ClaimsService>();
+
+builder.Services.ConfigureApplicationCookie(options =>
 {
-    public class Program
+    options.LoginPath = "/Account/Login";
+    options.LogoutPath = "/Account/Logout";
+    options.AccessDeniedPath = "/Account/AccessDenied";
+    options.Cookie.HttpOnly = true;
+    options.ExpireTimeSpan = TimeSpan.FromMinutes(60);
+    options.SlidingExpiration = true;
+});
+
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("Lecturer", policy => policy.RequireRole("Lecturer"));
+    options.AddPolicy("ProgrammeCoordinator", policy => policy.RequireRole("ProgrammeCoordinator"));
+    options.AddPolicy("AcademicManager", policy => policy.RequireRole("AcademicManager"));
+});
+
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowAll", builder =>
     {
-        public static void Main(string[] args)
+        builder.AllowAnyOrigin()
+               .AllowAnyMethod()
+               .AllowAnyHeader();
+    });
+});
+
+var app = builder.Build();
+
+// Initialize/migrate database
+using (var scope = app.Services.CreateScope())
+{
+    var services = scope.ServiceProvider;
+    try
+    {
+        var context = services.GetRequiredService<ApplicationDbContext>();
+        var userManager = services.GetRequiredService<UserManager<ApplicationUser>>();
+        var roleManager = services.GetRequiredService<RoleManager<IdentityRole>>();
+        
+        // Ensure database is created
+        context.Database.EnsureCreated();
+        
+        // Initialize roles if they don't exist
+        if (!roleManager.Roles.Any())
         {
-            var builder = WebApplication.CreateBuilder(args);
-            ConfigureServices(builder.Services);
-
-            var app = builder.Build();
-
-            if (!app.Environment.IsDevelopment())
-            {
-                app.UseExceptionHandler("/Home/Error");
-                app.UseHsts();
-            }
-
-            app.UseHttpsRedirection();
-            app.UseStaticFiles();
-            app.UseRouting();
-
-            app.UseAuthentication();
-            app.UseAuthorization();
-
-            app.UseCors("AllowAll");
-
-            app.MapControllerRoute(
-                name: "default",
-                pattern: "{controller=Home}/{action=Index}/{id?}");
-
-            app.Run();
-        }
-
-        public static void ConfigureServices(IServiceCollection services)
-        {
-            services.AddControllersWithViews();
-
-            // Remove the in-memory database context registration
-            // services.AddDbContext<ApplicationDbContext>(options =>
-            //     options.UseInMemoryDatabase("InMemoryDb"));
-
-            // Register in-memory storage for users and claims
-            services.AddSingleton<List<User>>(new List<User>());
-            services.AddSingleton<List<Claim>>(new List<Claim>());
-
-            // Register the claims service if you have any logic to handle claims
-            //services.AddSingleton<IClaimsService, ClaimsService>();
-            services.AddScoped<IClaimsService, ClaimsService>();
-
-            services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
-                .AddCookie(options =>
-                {
-                    options.LoginPath = "/Account/Login";
-                    options.LogoutPath = "/Account/Logout";
-                });
-
-            services.AddAuthorization(options =>
-            {
-                options.AddPolicy("Lecturer", policy => policy.RequireRole("Lecturer"));
-                options.AddPolicy("ProgrammeCoordinator", policy => policy.RequireRole("ProgrammeCoordinator"));
-                options.AddPolicy("AcademicManager", policy => policy.RequireRole("AcademicManager"));
-            });
-
-            services.AddCors(options =>
-            {
-                options.AddPolicy("AllowAll", builder =>
-                {
-                    builder.AllowAnyOrigin()
-                           .AllowAnyMethod()
-                           .AllowAnyHeader();
-                });
-            });
-
-        }
-
-        public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
-        {
-            app.UseCors("AllowAll");
-
-            
-            // Remove the Browser Link configuration as it is not supported
-            //app.UseBrowserLink(options => options.Disabled = true);
-
+            await roleManager.CreateAsync(new IdentityRole("Lecturer"));
+            await roleManager.CreateAsync(new IdentityRole("ProgrammeCoordinator"));
+            await roleManager.CreateAsync(new IdentityRole("AcademicManager"));
         }
     }
+    catch (Exception ex)
+    {
+        var logger = services.GetRequiredService<ILogger<Program>>();
+        logger.LogError(ex, "An error occurred while migrating or initializing the database.");
+    }
 }
+
+// Configure the HTTP request pipeline
+if (!app.Environment.IsDevelopment())
+{
+    app.UseExceptionHandler("/Home/Error");
+    app.UseHsts();
+}
+
+app.UseHttpsRedirection();
+app.UseStaticFiles();
+app.UseRouting();
+
+app.UseAuthentication();
+app.UseAuthorization();
+
+app.UseCors("AllowAll");
+
+app.MapControllerRoute(
+    name: "default",
+    pattern: "{controller=Home}/{action=Index}/{id?}");
+
+app.Run();
