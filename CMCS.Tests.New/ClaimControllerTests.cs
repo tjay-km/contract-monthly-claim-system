@@ -14,8 +14,9 @@ namespace CMCS.Tests
     public class ClaimControllerTests
     {
         private readonly List<CMCS.Models.Claim> _testClaims;
-        private readonly Mock<ILogger<ClaimController>> _loggerMock;
-        private readonly Mock<IClaimsService> _claimsServiceMock;
+        private readonly Mock<IClaimsService> _mockClaimsService;
+        private readonly Mock<ILogger<ClaimController>> _mockLogger;
+        private readonly Mock<IDocumentService> _mockDocumentService;
         private readonly ClaimController _controller;
 
         public ClaimControllerTests()
@@ -26,14 +27,15 @@ namespace CMCS.Tests
                 new CMCS.Models.Claim { Id = 2, LecturerName = "Jane Smith", Status = "Approved", DateSubmitted = DateTime.Now.AddDays(-1), HoursWorked = 8, HourlyRate = 45m }
             };
 
-            _loggerMock = new Mock<ILogger<ClaimController>>();
-            _claimsServiceMock = new Mock<IClaimsService>();
-            _claimsServiceMock.Setup(s => s.GetAllClaimsAsync())
+            _mockClaimsService = new Mock<IClaimsService>();
+            _mockLogger = new Mock<ILogger<ClaimController>>();
+            _mockDocumentService = new Mock<IDocumentService>();
+            _mockClaimsService.Setup(s => s.GetAllClaimsAsync())
                 .ReturnsAsync(_testClaims);
-            _claimsServiceMock.Setup(s => s.GetClaimByIdAsync(It.IsAny<int>()))
+            _mockClaimsService.Setup(s => s.GetClaimByIdAsync(It.IsAny<int>()))
                 .ReturnsAsync((int id) => _testClaims.Find(c => c.Id == id) ?? null);
 
-            _controller = new ClaimController(_claimsServiceMock.Object, _loggerMock.Object);
+            _controller = new ClaimController(_mockClaimsService.Object, _mockLogger.Object, _mockDocumentService.Object);
             _controller.TempData = new Microsoft.AspNetCore.Mvc.ViewFeatures.TempDataDictionary(
                 new Microsoft.AspNetCore.Http.DefaultHttpContext(),
                 Mock.Of<Microsoft.AspNetCore.Mvc.ViewFeatures.ITempDataProvider>()
@@ -55,7 +57,7 @@ namespace CMCS.Tests
         public async Task ListClaims_ReturnsViewResultWithAllClaims()
         {
             // Arrange
-            _claimsServiceMock.Setup(s => s.GetAllClaimsAsync())
+            _mockClaimsService.Setup(s => s.GetAllClaimsAsync())
                 .ReturnsAsync(_testClaims);
 
             // Act
