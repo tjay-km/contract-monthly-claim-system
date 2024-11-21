@@ -28,7 +28,13 @@ namespace CMCS.Data
                 entity.Property(e => e.AdditionalNotes).IsRequired(false);
                 entity.Property(e => e.RejectionReason).IsRequired(false);
                 entity.Property(e => e.SupportingDocumentPath).IsRequired(false);
+                entity.Property(e => e.UserId).IsRequired(false);
                 entity.Ignore(e => e.SupportingDocument); // Ignore IFormFile as it's not stored in DB
+                
+                entity.HasOne(c => c.User)
+                    .WithMany()
+                    .HasForeignKey(c => c.UserId)
+                    .OnDelete(DeleteBehavior.SetNull);
             });
 
             modelBuilder.Entity<ClaimDocument>(entity =>
