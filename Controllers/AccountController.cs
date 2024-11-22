@@ -49,8 +49,9 @@ namespace CMCS.Controllers
                 if (result.Succeeded)
                 {
                     await _userManager.AddToRoleAsync(user, model.Role);
-                    await _signInManager.SignInAsync(user, isPersistent: false);
-                    return RedirectToAction("Index", "Home");
+                    // Don't automatically sign in after registration
+                    TempData["SuccessMessage"] = "Registration successful! Please log in to continue.";
+                    return RedirectToAction("Login", "Account");
                 }
 
                 foreach (var error in result.Errors)

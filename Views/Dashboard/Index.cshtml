@@ -1,11 +1,20 @@
-﻿@model CMCS.Models.DashboardViewModel
+@model CMCS.Models.ViewModels.DashboardViewModel
 @inject Microsoft.AspNetCore.Antiforgery.IAntiforgery Antiforgery
+@using CMCS.Models.Enums
 @{
     ViewData["Title"] = "Dashboard";
     var antiforgeryToken = Antiforgery.GetAndStoreTokens(Context).RequestToken;
 }
 
 <div class="container mx-auto px-4 py-8">
+    @if (TempData["SuccessMessage"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            @TempData["SuccessMessage"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    }
+
     <h1 class="text-3xl font-bold mb-8">Contract Monthly Claim System Dashboard</h1>
 
     @if (User.IsInRole("Lecturer"))
@@ -21,7 +30,7 @@
                 <table class="w-full">
                     <thead>
                         <tr>
-                            <th class="px-4 py-2">Date Submitted</th>
+                            <th class="px-4 py-2">Submission Date</th>
                             <th class="px-4 py-2">Hours Worked</th>
                             <th class="px-4 py-2">Hourly Rate</th>
                             <th class="px-4 py-2">Total Amount</th>
@@ -33,14 +42,24 @@
                         @foreach (var claim in Model.Claims)
                         {
                             <tr>
-                                <td class="border px-4 py-2">@claim.DateSubmitted.ToShortDateString()</td>
+                                <td class="border px-4 py-2">@claim.SubmissionDate.ToString("yyyy-MM-dd")</td>
                                 <td class="border px-4 py-2">@claim.HoursWorked</td>
                                 <td class="border px-4 py-2">@claim.HourlyRate.ToString("C")</td>
                                 <td class="border px-4 py-2">@((claim.HoursWorked * claim.HourlyRate).ToString("C"))</td>
                                 <td class="border px-4 py-2">
-                                    <span class="@(claim.Status == "Approved" ? "text-green-500" : (claim.Status == "Rejected" ? "text-red-500" : "text-yellow-500"))">
-                                        @claim.Status
-                                    </span>
+                                    @if (claim.Status == ClaimStatus.Approved || claim.Status == ClaimStatus.Rejected)
+                                    {
+                                        <span class="badge badge-success">@claim.Status</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge badge-warning">@claim.Status</span>
+                                    }
+                                    @if (claim.Status == ClaimStatus.Rejected && !string.IsNullOrEmpty(claim.RejectionReason))
+                                    {
+                                        <br />
+                                        <small class="text-red-500">Reason: @claim.RejectionReason</small>
+                                    }
                                 </td>
                                 <td class="border px-4 py-2">
                                     @if (claim.SupportingDocumentPath != null)
@@ -57,15 +76,25 @@
                 @foreach (var claim in Model.Claims)
                 {
                     <div class="bg-gray-100 rounded-lg p-4 mb-4">
-                        <p><strong>Date:</strong> @claim.DateSubmitted.ToShortDateString()</p>
+                        <p><strong>Submission Date:</strong> @claim.SubmissionDate.ToString("yyyy-MM-dd")</p>
                         <p><strong>Hours:</strong> @claim.HoursWorked</p>
                         <p><strong>Rate:</strong> @claim.HourlyRate.ToString("C")</p>
                         <p><strong>Total:</strong> @((claim.HoursWorked * claim.HourlyRate).ToString("C"))</p>
                         <p>
                             <strong>Status:</strong>
-                            <span class="@(claim.Status == "Approved" ? "text-green-500" : (claim.Status == "Rejected" ? "text-red-500" : "text-yellow-500"))">
-                                @claim.Status
-                            </span>
+                            @if (claim.Status == ClaimStatus.Approved || claim.Status == ClaimStatus.Rejected)
+                            {
+                                <span class="badge badge-success">@claim.Status</span>
+                            }
+                            else
+                            {
+                                <span class="badge badge-warning">@claim.Status</span>
+                            }
+                            @if (claim.Status == ClaimStatus.Rejected && !string.IsNullOrEmpty(claim.RejectionReason))
+                            {
+                                <br />
+                                <small class="text-red-500">Reason: @claim.RejectionReason</small>
+                            }
                         </p>
                         @if (claim.SupportingDocumentPath != null)
                         {
@@ -85,7 +114,7 @@
                 <table class="w-full">
                     <thead>
                         <tr>
-                            <th class="px-4 py-2">Date Submitted</th>
+                            <th class="px-4 py-2">Submission Date</th>
                             <th class="px-4 py-2">Lecturer</th>
                             <th class="px-4 py-2">Hours Worked</th>
                             <th class="px-4 py-2">Hourly Rate</th>
@@ -99,7 +128,7 @@
                         @foreach (var claim in Model.PendingClaims)
                         {
                             <tr>
-                                <td class="border px-4 py-2">@claim.DateSubmitted.ToShortDateString()</td>
+                                <td class="border px-4 py-2">@claim.SubmissionDate.ToString("yyyy-MM-dd")</td>
                                 <td class="border px-4 py-2 break-words">@claim.LecturerName</td>
                                 <td class="border px-4 py-2">@claim.HoursWorked</td>
                                 <td class="border px-4 py-2">@claim.HourlyRate.ToString("C")</td>
@@ -112,6 +141,10 @@
                                     }
                                 </td>
                                 <td class="border px-4 py-2">
+                                    @if (claim.Status == ClaimStatus.Pending)
+                                    {
+                                        <button type="button" class="btn btn-primary btn-sm">Review</button>
+                                    }
                                     <button onclick="updateClaimStatus(@claim.Id, 'Approved')" class="bg-green-500 hover:bg-green-700 text-white font-bold py-1 px-2 rounded mr-2">
                                         Approve
                                     </button>
@@ -131,7 +164,7 @@
                 @foreach (var claim in Model.PendingClaims)
                 {
                     <div class="bg-gray-100 rounded-lg p-4 mb-4">
-                        <p><strong>Date:</strong> @claim.DateSubmitted.ToShortDateString()</p>
+                        <p><strong>Submission Date:</strong> @claim.SubmissionDate.ToString("yyyy-MM-dd")</p>
                         <p><strong>Lecturer:</strong> <span class="break-words">@claim.LecturerName</span></p>
                         <p><strong>Hours:</strong> @claim.HoursWorked</p>
                         <p><strong>Rate:</strong> @claim.HourlyRate.ToString("C")</p>
@@ -139,9 +172,13 @@
                         <p><strong>Notes:</strong> <span class="break-words">@claim.AdditionalNotes</span></p>
                         @if (!string.IsNullOrEmpty(claim.SupportingDocumentPath))
                         {
-                            <p><a href="@Url.Action("DownloadDocument", "Claim", new { id = claim.Id })" class="text-blue-500 hover:text-blue-700">View Document</a></p>
+                            <a href="@Url.Action("DownloadDocument", "Claim", new { id = claim.Id })" class="text-blue-500 hover:text-blue-700">View Document</a>
                         }
                         <div class="mt-2">
+                            @if (claim.Status == ClaimStatus.Pending)
+                            {
+                                <button type="button" class="btn btn-primary btn-sm">Review</button>
+                            }
                             <button onclick="updateClaimStatus(@claim.Id, 'Approved')" class="bg-green-500 hover:bg-green-700 text-white font-bold py-1 px-2 rounded mr-2">
                                 Approve
                             </button>
@@ -163,7 +200,7 @@
                 <table class="w-full">
                     <thead>
                         <tr>
-                            <th class="px-4 py-2">Date Submitted</th>
+                            <th class="px-4 py-2">Submission Date</th>
                             <th class="px-4 py-2">Lecturer</th>
                             <th class="px-4 py-2">Hours Worked</th>
                             <th class="px-4 py-2">Hourly Rate</th>
@@ -178,7 +215,7 @@
                         @foreach (var claim in Model.ManagedClaims)
                         {
                             <tr>
-                                <td class="border px-4 py-2">@claim.DateSubmitted.ToShortDateString()</td>
+                                <td class="border px-4 py-2">@claim.SubmissionDate.ToString("yyyy-MM-dd")</td>
                                 <td class="border px-4 py-2 break-words">@claim.LecturerName</td>
                                 <td class="border px-4 py-2">@claim.HoursWorked</td>
                                 <td class="border px-4 py-2">@claim.HourlyRate.ToString("C")</td>
@@ -191,12 +228,22 @@
                                     }
                                 </td>
                                 <td class="border px-4 py-2">
-                                    <span class="@(claim.Status == "Approved" ? "text-green-500" : "text-red-500")">
-                                        @claim.Status
-                                    </span>
+                                    @if (claim.Status == ClaimStatus.Approved || claim.Status == ClaimStatus.Rejected)
+                                    {
+                                        <span class="badge badge-success">@claim.Status</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge badge-warning">@claim.Status</span>
+                                    }
+                                    @if (claim.Status == ClaimStatus.Rejected && !string.IsNullOrEmpty(claim.RejectionReason))
+                                    {
+                                        <br />
+                                        <small class="text-red-500">Reason: @claim.RejectionReason</small>
+                                    }
                                 </td>
                                 <td class="border px-4 py-2 overflow-auto break-words max-w-xs">
-                                    @if (claim.Status == "Rejected")
+                                    @if (claim.Status == ClaimStatus.Rejected)
                                     {
                                         <span class="text-red-500">@claim.RejectionReason</span>
                                     }
@@ -210,7 +257,7 @@
                 @foreach (var claim in Model.ManagedClaims)
                 {
                     <div class="bg-gray-100 rounded-lg p-4 mb-4">
-                        <p><strong>Date:</strong> @claim.DateSubmitted.ToShortDateString()</p>
+                        <p><strong>Submission Date:</strong> @claim.SubmissionDate.ToString("yyyy-MM-dd")</p>
                         <p><strong>Lecturer:</strong> <span class="break-words">@claim.LecturerName</span></p>
                         <p><strong>Hours:</strong> @claim.HoursWorked</p>
                         <p><strong>Rate:</strong> @claim.HourlyRate.ToString("C")</p>
@@ -222,11 +269,21 @@
                         }
                         <p>
                             <strong>Status:</strong>
-                            <span class="@(claim.Status == "Approved" ? "text-green-500" : "text-red-500")">
-                                @claim.Status
-                            </span>
+                            @if (claim.Status == ClaimStatus.Approved || claim.Status == ClaimStatus.Rejected)
+                            {
+                                <span class="badge badge-success">@claim.Status</span>
+                            }
+                            else
+                            {
+                                <span class="badge badge-warning">@claim.Status</span>
+                            }
+                            @if (claim.Status == ClaimStatus.Rejected && !string.IsNullOrEmpty(claim.RejectionReason))
+                            {
+                                <br />
+                                <small class="text-red-500">Reason: @claim.RejectionReason</small>
+                            }
                         </p>
-                        @if (claim.Status == "Rejected")
+                        @if (claim.Status == ClaimStatus.Rejected)
                         {
                             <p>
                                 <strong>Rejection Reason:</strong>

@@ -35,17 +35,19 @@
             <div class="flex items-center gap-9">
                 <a class="text-sm font-medium leading-normal" href="/">Home</a>
                 <a class="text-sm font-medium leading-normal" href="/Home/Features">Features</a>
-                <!-- Show Dashboard only if user is logged in -->
                 @if (User.Identity.IsAuthenticated)
-
                 {
                     <a class="text-sm font-medium leading-normal" href="/Dashboard/Index">Dashboard</a>
+                }
+                @if (User.IsInRole("ProgrammeCoordinator") || User.IsInRole("AcademicManager"))
+                {
+                    <a class="text-sm font-medium leading-normal" href="/HR/Dashboard">HR Dashboard</a>
+                    <a class="text-sm font-medium leading-normal" href="/HR/Reports">HR Reports</a>
                 }
             </div>
 
             <div class="flex gap-2">
                 @if (User.Identity.IsAuthenticated)
-
                 {
                     <!-- Show Logout button if user is logged in -->
                     <form class="form-inline" asp-controller="Account" asp-action="Logout" method="post">
@@ -54,7 +56,6 @@
                 }
 
                 else
-
                 {
                     <!-- Show Sign Up and Login buttons if user is not logged in -->
                     <a href="/Account/Register" class="flex min-w-[84px] max-w-[480px] items-center justify-center rounded-xl h-10 px-4 bg-[#1366ec] text-white text-sm font-bold">
@@ -107,12 +108,10 @@
                     <a class="text-[#617189] text-base font-normal leading-normal min-w-40" href="/Home/ToS">Terms of Service</a>
                     <a class="text-[#617189] text-base font-normal leading-normal min-w-40" href="/Home/Faqs">FAQs</a>
                 </div>
-                <p class="text-[#617189] text-base font-normal leading-normal">© 2024 Contract Monthly Claim System</p>
+                <p class="text-[#617189] text-base font-normal leading-normal"> 2024 Contract Monthly Claim System</p>
             </footer>
         </div>
     </footer>
-
-
 
     <!-- Scripts -->
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>

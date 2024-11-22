@@ -6,11 +6,14 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using CMCS.Models;
+using CMCS.Models.Enums;
+using CMCS.Models.ViewModels;
 using System.Collections.Generic;
 using System.IO;
 using CMCS.Services;
 using System.Security.Claims;
 using ClaimModel = CMCS.Models.Claim;
+using Microsoft.AspNetCore.Identity;
 
 namespace CMCS.Controllers
 {
@@ -23,15 +26,21 @@ namespace CMCS.Controllers
         private readonly ILogger<ClaimController> _logger;
         private readonly IClaimsService _claimsService;
         private readonly IDocumentService _documentService;
+        private readonly IClaimApprovalService _approvalService;
+        private readonly UserManager<ApplicationUser> _userManager;
 
         public ClaimController(
             IClaimsService claimsService,
             ILogger<ClaimController> logger,
-            IDocumentService documentService)
+            IDocumentService documentService,
+            IClaimApprovalService approvalService,
+            UserManager<ApplicationUser> userManager)
         {
             _claimsService = claimsService;
             _logger = logger;
             _documentService = documentService;
+            _approvalService = approvalService;
+            _userManager = userManager;
         }
 
         /// <summary>
@@ -39,9 +48,15 @@ namespace CMCS.Controllers
         /// </summary>
         /// <returns>View result.</returns>
         [Authorize(Roles = "Lecturer")]
-        public IActionResult Submit()
+        public async Task<IActionResult> Submit()
         {
-            return View(new ClaimModel());
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            var claim = new ClaimModel
+            {
+                LecturerId = userId,
+                LecturerName = User.Identity?.Name ?? string.Empty
+            };
+            return View(claim);
         }
 
         /// <summary>
@@ -57,15 +72,28 @@ namespace CMCS.Controllers
         {
             if (!ModelState.IsValid)
             {
+                foreach (var modelState in ModelState.Values)
+                {
+                    foreach (var error in modelState.Errors)
+                    {
+                        TempData["ErrorMessage"] = error.ErrorMessage;
+                    }
+                }
                 return View(claim);
             }
 
             try
             {
+                // Set LecturerId if not already set
+                if (string.IsNullOrEmpty(claim.LecturerId))
+                {
+                    claim.LecturerId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+                }
+
                 // Validate file
                 if (supportingDocument == null || supportingDocument.Length == 0)
                 {
-                    ModelState.AddModelError("SupportingDocument", "Please upload a supporting document");
+                    ModelState.AddModelError("SupportingDocument", "Supporting document is required");
                     return View(claim);
                 }
 
@@ -74,80 +102,87 @@ namespace CMCS.Controllers
                 
                 if (!allowedExtensions.Contains(fileExtension))
                 {
-                    ModelState.AddModelError("SupportingDocument", "Please upload a valid document file (PDF, DOC, or DOCX)");
+                    TempData["ErrorMessage"] = "Please upload a valid document file (PDF, DOC, or DOCX)";
                     return View(claim);
                 }
 
                 if (supportingDocument.Length > 5 * 1024 * 1024) // 5MB limit
                 {
-                    ModelState.AddModelError("SupportingDocument", "File size cannot exceed 5MB");
+                    TempData["ErrorMessage"] = "File size cannot exceed 5MB";
                     return View(claim);
                 }
 
-                // Set additional claim properties
-                claim.DateSubmitted = DateTime.Now;
-                claim.Status = "Pending";
+                // Calculate total amount
+                decimal calculatedTotal = claim.HoursWorked * claim.HourlyRate;
+                
+                // Validate total amount
+                if (calculatedTotal <= 0 || calculatedTotal > 3900000)
+                {
+                    ModelState.AddModelError("TotalAmount", "Total amount must be between R0.01 and R3,900,000");
+                    return View(claim);
+                }
+
+                // Set the calculated total
+                claim.TotalAmount = calculatedTotal;
+
+                // Auto-approve claims under R5000
+                if (calculatedTotal <= 5000)
+                {
+                    claim.Status = ClaimStatus.Approved;
+                    claim.DateReviewed = DateTime.Now;
+                    claim.ReviewedBy = "System";
+                    claim.ApprovalComments = "Auto-approved: Amount less than or equal to R5000";
+                }
+                else
+                {
+                    claim.Status = ClaimStatus.Pending;
+                }
+
+                // Save the supporting document
+                if (supportingDocument != null && supportingDocument.Length > 0)
+                {
+                    string uniqueFileName = $"{Guid.NewGuid()}_{supportingDocument.FileName}";
+                    string uploadsFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads");
+                    
+                    if (!Directory.Exists(uploadsFolder))
+                    {
+                        Directory.CreateDirectory(uploadsFolder);
+                    }
+                    
+                    string filePath = Path.Combine(uploadsFolder, uniqueFileName);
+                    using (var fileStream = new FileStream(filePath, FileMode.Create))
+                    {
+                        await supportingDocument.CopyToAsync(fileStream);
+                    }
+
+                    claim.SupportingDocumentPath = Path.Combine("uploads", uniqueFileName).Replace("\\", "/");
+                }
+
+                // Set submission date and user ID
+                claim.SubmissionDate = DateTime.Now;
                 claim.UserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
 
-                // Save claim first to get the ID
-                await _claimsService.CreateClaimAsync(claim);
+                // Create the claim
+                var createdClaim = await _claimsService.CreateClaimAsync(claim);
 
-                // Now save the document with the claim ID
-                var documentPath = await SaveSupportingDocument(supportingDocument, claim.Id);
-                
-                // Update claim with document path
-                claim.SupportingDocumentPath = documentPath;
-                await _claimsService.UpdateClaimAsync(claim);
+                if (createdClaim != null)
+                {
+                    TempData["SuccessMessage"] = claim.Status == ClaimStatus.Approved 
+                        ? "Claim submitted and auto-approved successfully!" 
+                        : "Claim submitted successfully and pending review.";
+                    
+                    return RedirectToAction(nameof(Dashboard));
+                }
 
-                _logger.LogInformation("Claim submitted successfully for lecturer {LecturerName}", claim.LecturerName);
-                TempData["SuccessMessage"] = "Claim submitted successfully!";
-                
-                return RedirectToAction(nameof(Dashboard));
+                TempData["ErrorMessage"] = "An error occurred while submitting your claim. Please try again.";
+                return View(claim);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error submitting claim for lecturer {LecturerName}", claim.LecturerName);
-                ModelState.AddModelError("", "An error occurred while submitting your claim. Please try again.");
+                TempData["ErrorMessage"] = "An error occurred while submitting your claim. Please try again.";
                 return View(claim);
             }
-        }
-
-        /// <summary>
-        /// Saves the supporting document to the uploads directory.
-        /// </summary>
-        /// <param name="file">Supporting document file.</param>
-        /// <param name="claimId">The ID of the claim.</param>
-        /// <returns>Path to saved document.</returns>
-        private async Task<string> SaveSupportingDocument(IFormFile file, int claimId)
-        {
-            var uploadPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads");
-            if (!Directory.Exists(uploadPath))
-            {
-                Directory.CreateDirectory(uploadPath);
-            }
-
-            var fileName = Path.GetRandomFileName() + Path.GetExtension(file.FileName);
-            var filePath = Path.Combine(uploadPath, fileName);
-
-            using (var stream = new FileStream(filePath, FileMode.Create))
-            {
-                await file.CopyToAsync(stream);
-            }
-
-            var relativePath = $"/uploads/{fileName}";
-
-            // Create and save document metadata
-            var claimDocument = new CMCS.Models.ClaimDocument
-            {
-                ClaimId = claimId,
-                FileName = file.FileName,
-                FilePath = relativePath,
-                DateUploaded = DateTime.Now
-            };
-
-            await _documentService.AddClaimDocument(claimDocument);
-
-            return relativePath;
         }
 
         /// <summary>
@@ -161,7 +196,7 @@ namespace CMCS.Controllers
             {
                 Claim = new ClaimModel(),
                 Claims = claims.Where(c => c.LecturerName == User.Identity.Name).ToList(),
-                PendingClaims = claims.Where(c => c.Status == "Pending").ToList()
+                PendingClaims = claims.Where(c => c.Status == ClaimStatus.Pending).ToList()
             };
 
             ViewBag.SuccessMessage = TempData["SuccessMessage"];
@@ -183,7 +218,7 @@ namespace CMCS.Controllers
                 return NotFound("Claim not found.");
             }
 
-            claim.Status = "Approved";
+            claim.Status = ClaimStatus.Approved;
             await _claimsService.UpdateClaimAsync(claim);
             _logger.LogInformation($"Claim ID {id} approved.");
 
@@ -226,7 +261,7 @@ namespace CMCS.Controllers
                 return NotFound("Claim not found.");
             }
 
-            claim.Status = "Rejected";
+            claim.Status = ClaimStatus.Rejected;
             claim.RejectionReason = rejectionReason;
             await _claimsService.UpdateClaimAsync(claim);
 

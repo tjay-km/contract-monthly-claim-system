@@ -7,11 +7,30 @@ using CMCS.Data;
 using CMCS.Models;
 using CMCS.Services;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Localization;
+using System.Globalization;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container
-builder.Services.AddControllersWithViews();
+// Add services to the container.
+builder.Services.AddControllersWithViews(options =>
+{
+    options.ModelBindingMessageProvider.SetValueMustNotBeNullAccessor(
+        _ => "This field is required.");
+})
+.AddJsonOptions(options =>
+{
+    options.JsonSerializerOptions.PropertyNamingPolicy = null;
+});
+
+// Configure culture settings
+var supportedCultures = new[] { new CultureInfo("en-US") };
+builder.Services.Configure<RequestLocalizationOptions>(options =>
+{
+    options.DefaultRequestCulture = new RequestCulture("en-US");
+    options.SupportedCultures = supportedCultures;
+    options.SupportedUICultures = supportedCultures;
+});
 
 // Configure SQL Server
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
@@ -25,6 +44,11 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>()
 builder.Services.AddScoped<IClaimsService, ClaimsService>();
 builder.Services.AddScoped<IIdentityService, IdentityService>();
 builder.Services.AddScoped<IDocumentService, DocumentService>();
+builder.Services.AddScoped<IClaimValidationService, ClaimValidationService>();
+builder.Services.AddScoped<IClaimApprovalService, ClaimApprovalService>();
+builder.Services.AddScoped<IAutoApprovalConfigService, AutoApprovalConfigService>();
+builder.Services.AddScoped<IClaimAuditService, ClaimAuditService>();
+builder.Services.AddScoped<IClaimReportService, ClaimReportService>();
 
 // Configure Identity options
 builder.Services.Configure<IdentityOptions>(options =>
@@ -61,6 +85,22 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy("Lecturer", policy => policy.RequireRole("Lecturer"));
     options.AddPolicy("ProgrammeCoordinator", policy => policy.RequireRole("ProgrammeCoordinator"));
     options.AddPolicy("AcademicManager", policy => policy.RequireRole("AcademicManager"));
+
+    // Add claim-based policies
+    options.AddPolicy("CanSubmitClaim", 
+        policy => policy.RequireClaim("Permission", "SubmitClaim"));
+    
+    options.AddPolicy("CanReviewClaims", 
+        policy => policy.RequireClaim("Permission", "ReviewClaims"));
+    
+    options.AddPolicy("CanApproveClaims", 
+        policy => policy.RequireClaim("Permission", "ApproveClaims"));
+    
+    options.AddPolicy("CanRejectClaims", 
+        policy => policy.RequireClaim("Permission", "RejectClaims"));
+    
+    options.AddPolicy("CanViewAllClaims", 
+        policy => policy.RequireClaim("Permission", "ViewAllClaims"));
 });
 
 builder.Services.AddCors(options =>
@@ -85,21 +125,16 @@ using (var scope = app.Services.CreateScope())
         var userManager = services.GetRequiredService<UserManager<ApplicationUser>>();
         var roleManager = services.GetRequiredService<RoleManager<IdentityRole>>();
         
-        // Ensure database is created
-        context.Database.EnsureCreated();
+        // Apply any pending migrations
+        context.Database.Migrate();
         
-        // Initialize roles if they don't exist
-        if (!roleManager.Roles.Any())
-        {
-            await roleManager.CreateAsync(new IdentityRole("Lecturer"));
-            await roleManager.CreateAsync(new IdentityRole("ProgrammeCoordinator"));
-            await roleManager.CreateAsync(new IdentityRole("AcademicManager"));
-        }
+        // Initialize roles and claims
+        await SeedData.InitializeRolesAndClaims(roleManager, userManager);
     }
     catch (Exception ex)
     {
         var logger = services.GetRequiredService<ILogger<Program>>();
-        logger.LogError(ex, "An error occurred while migrating or initializing the database.");
+        logger.LogError(ex, "An error occurred while seeding the database.");
     }
 }
 

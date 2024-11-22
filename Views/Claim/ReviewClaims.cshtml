@@ -1,3 +1,4 @@
+@using CMCS.Models.Enums
 @model IEnumerable<CMCS.Models.Claim>
 
 @{
@@ -39,20 +40,25 @@
                         {
                             foreach (var claim in Model)
                             {
-                                <tr class="@(claim.Status == "Rejected" ? "bg-red-50" : claim.Status == "Approved" ? "bg-green-50" : "")">
+                                <tr class="@(claim.Status == ClaimStatus.Rejected ? "bg-red-50" : claim.Status == ClaimStatus.Approved ? "bg-green-50" : "")">
                                     <td class="px-4 py-2">@claim.Id</td>
                                     <td class="px-4 py-2">@claim.LecturerName</td>
                                     <td class="px-4 py-2">@claim.HoursWorked</td>
                                     <td class="px-4 py-2">@claim.HourlyRate</td>
                                     <td class="px-4 py-2">@((decimal)claim.HoursWorked * claim.HourlyRate)</td>
                                     <td class="px-4 py-2">
-                                        <span class="@(claim.Status == "Rejected" ? "text-red-600" : claim.Status == "Approved" ? "text-green-600" : "text-yellow-600")">
-                                            @claim.Status
-                                        </span>
+                                        @if (claim.Status == ClaimStatus.Approved || claim.Status == ClaimStatus.Rejected)
+                                        {
+                                            <span class="badge badge-success">@claim.Status</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge badge-warning">@claim.Status</span>
+                                        }
                                     </td>
                                     <td class="px-4 py-2"><a href="#" class="text-indigo-600">Document.pdf</a></td>
                                     <td class="px-4 py-2">
-                                        @if (claim.Status == "Pending")
+                                        @if (claim.Status == ClaimStatus.Pending)
                                         {
                                             <div class="flex items-center space-x-2">
                                                 <form asp-controller="Claim" asp-action="Approve" method="post" class="inline">
@@ -69,7 +75,7 @@
                                                 </form>
                                             </div>
                                         }
-                                        else if (claim.Status == "Rejected" && !string.IsNullOrEmpty(claim.RejectionReason))
+                                        else if (claim.Status == ClaimStatus.Rejected && !string.IsNullOrEmpty(claim.RejectionReason))
                                         {
                                             <div class="text-red-600">
                                                 <i class="fas fa-info-circle mr-1"></i>

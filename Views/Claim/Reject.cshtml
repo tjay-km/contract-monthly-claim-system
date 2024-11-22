@@ -51,8 +51,8 @@
                         <p class="text-gray-900">R @(Math.Round(Model.HoursWorked * Model.HourlyRate, 2).ToString("N2"))</p>
                     </div>
                     <div>
-                        <p class="text-sm font-medium text-gray-500">Date Submitted</p>
-                        <p class="text-gray-900">@Model.DateSubmitted.ToString("dd/MM/yyyy HH:mm")</p>
+                        <p class="text-sm font-medium text-gray-500">Submission Date</p>
+                        <p class="text-gray-900">@Model.SubmissionDate.ToString("yyyy-MM-dd")</p>
                     </div>
                     @if (!string.IsNullOrEmpty(Model.AdditionalNotes))
                     {

@@ -1,0 +1,281 @@
+@model IEnumerable<CMCS.Models.ViewModels.LecturerManagementViewModel>
+@{
+    ViewData["Title"] = "HR Dashboard";
+}
+
+<div class="container-fluid">
+    <h2>HR Dashboard</h2>
+
+    @if (TempData["SuccessMessage"] != null)
+    {
+        <div class="alert alert-success">
+            @TempData["SuccessMessage"]
+        </div>
+    }
+    @if (TempData["ErrorMessage"] != null)
+    {
+        <div class="alert alert-danger">
+            @TempData["ErrorMessage"]
+        </div>
+    }
+
+    <!-- Statistics Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <h5 class="card-title">Total Claims</h5>
+                    <h3>@ViewBag.TotalClaims</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <h5 class="card-title">Approved Claims</h5>
+                    <h3>@ViewBag.ApprovedClaims</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-dark">
+                <div class="card-body">
+                    <h5 class="card-title">Pending Claims</h5>
+                    <h3>@ViewBag.PendingClaims</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <h5 class="card-title">Total Claim Amount</h5>
+                    <h3>R@(ViewBag.TotalClaimAmount > 0 ? ViewBag.TotalClaimAmount.ToString("N2") : "0.00")</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Claims -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Recent Claims</h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Claim ID</th>
+                                <th>Lecturer Name</th>
+                                <th>Department</th>
+                                <th>Amount</th>
+                                <th>Status</th>
+                                <th>Submission Date</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var claim in ViewBag.RecentClaims)
+                            {
+                                <tr>
+                                    <td>@claim.ClaimId</td>
+                                    <td>@claim.LecturerName</td>
+                                    <td>@claim.Department</td>
+                                    <td>R@(claim.TotalAmount > 0 ? claim.TotalAmount.ToString("N2") : "0.00")</td>
+                                    <td>
+                                        <span class="badge @(claim.Status.Trim().Equals("Approved", StringComparison.OrdinalIgnoreCase) ? "bg-success" : 
+                                                           claim.Status.Trim().Equals("Pending", StringComparison.OrdinalIgnoreCase) ? "bg-warning" : 
+                                                           claim.Status.Trim().Equals("Rejected", StringComparison.OrdinalIgnoreCase) ? "bg-danger" : "bg-secondary")">
+                                            @claim.Status
+                                        </span>
+                                    </td>
+                                    <td>@claim.SubmissionDate.ToString("dd MMM yyyy")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lecturer Claim Summaries -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Lecturer Claim Summaries</h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Department</th>
+                                <th>Total Claims</th>
+                                <th>Total Amount</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var user in ViewBag.UserSummaries)
+                            {
+                                <tr>
+                                    <td>@user.Name</td>
+                                    <td>@user.Department</td>
+                                    <td>@user.TotalClaims</td>
+                                    <td>R@(user.TotalClaimAmount > 0 ? user.TotalClaimAmount.ToString("N2") : "0.00")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lecturer Management Section -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h4>Lecturer Management</h4>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Department</th>
+                            <th>Email</th>
+                            <th>Phone</th>
+                            <th>Specialization</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var lecturer in Model)
+                        {
+                            <tr>
+                                <td>@lecturer.FullName</td>
+                                <td>@lecturer.Department</td>
+                                <td>@lecturer.Email</td>
+                                <td>@lecturer.PhoneNumber</td>
+                                <td>@lecturer.Specialization</td>
+                                <td>
+                                    <span class="badge @(lecturer.IsActive ? "bg-success" : "bg-danger")">
+                                        @(lecturer.IsActive ? "Active" : "Inactive")
+                                    </span>
+                                </td>
+                                <td>
+                                    <div class="btn-group">
+                                        <button type="button" class="btn btn-primary btn-sm" 
+                                                onclick="editLecturer('@lecturer.Id')" 
+                                                title="Edit">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <button type="button" class="btn @(lecturer.IsActive ? "btn-danger" : "btn-success") btn-sm"
+                                                onclick="toggleLecturerStatus('@lecturer.Id', @(!lecturer.IsActive).ToString().ToLower())"
+                                                title="@(lecturer.IsActive ? "Deactivate" : "Activate")">
+                                            <i class="fas @(lecturer.IsActive ? "fa-user-times" : "fa-user-check")"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Lecturer Modal -->
+<div class="modal fade" id="editLecturerModal" tabindex="-1" role="dialog" aria-labelledby="editLecturerModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editLecturerModalLabel">Edit Lecturer</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editLecturerForm">
+                    <input type="hidden" id="lecturerId" name="Id" />
+                    <div class="mb-3">
+                        <label for="firstName" class="form-label">First Name</label>
+                        <input type="text" class="form-control" id="firstName" name="FirstName" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="lastName" class="form-label">Last Name</label>
+                        <input type="text" class="form-control" id="lastName" name="LastName" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="email" class="form-label">Email</label>
+                        <input type="email" class="form-control" id="email" name="Email" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="phoneNumber" class="form-label">Phone Number</label>
+                        <input type="tel" class="form-control" id="phoneNumber" name="PhoneNumber">
+                    </div>
+                    <div class="mb-3">
+                        <label for="department" class="form-label">Department</label>
+                        <input type="text" class="form-control" id="department" name="Department" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="specialization" class="form-label">Specialization</label>
+                        <input type="text" class="form-control" id="specialization" name="Specialization">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" onclick="saveLecturerChanges()">Save changes</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        $(document).ready(function() {
+            // Optional: Add any dashboard-specific scripts here
+        });
+
+        function editLecturer(id) {
+            $.get('/HR/GetLecturer/' + id, function(data) {
+                $('#lecturerId').val(data.id);
+                $('#firstName').val(data.firstName);
+                $('#lastName').val(data.lastName);
+                $('#email').val(data.email);
+                $('#phoneNumber').val(data.phoneNumber);
+                $('#department').val(data.department);
+                $('#specialization').val(data.specialization);
+                $('#editLecturerModal').modal('show');
+            });
+        }
+
+        function saveLecturerChanges() {
+            var formData = $('#editLecturerForm').serialize();
+            $.post('/HR/UpdateLecturer', formData, function(response) {
+                if (response.success) {
+                    $('#editLecturerModal').modal('hide');
+                    window.location.reload();
+                } else {
+                    alert('Error updating lecturer: ' + response.message);
+                }
+            });
+        }
+
+        function toggleLecturerStatus(id, activate) {
+            if (!confirm('Are you sure you want to ' + (activate ? 'activate' : 'deactivate') + ' this lecturer?')) {
+                return;
+            }
+            $.post('/HR/ToggleLecturerStatus', { id: id, activate: activate }, function(response) {
+                if (response.success) {
+                    window.location.reload();
+                } else {
+                    alert('Error updating lecturer status: ' + response.message);
+                }
+            });
+        }
+    </script>
+}

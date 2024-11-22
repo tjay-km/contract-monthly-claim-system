@@ -18,12 +18,18 @@ namespace CMCS.Services
 
         public async Task<IEnumerable<Claim>> GetAllClaimsAsync()
         {
-            return await _context.Claims.ToListAsync();
+            return await _context.Claims
+                .Include(c => c.User)
+                .Include(c => c.Reviewer)
+                .ToListAsync();
         }
 
         public async Task<Claim> GetClaimByIdAsync(int id)
         {
-            return await _context.Claims.FindAsync(id);
+            return await _context.Claims
+                .Include(c => c.User)
+                .Include(c => c.Reviewer)
+                .FirstOrDefaultAsync(c => c.Id == id);
         }
 
         public async Task<Claim> CreateClaimAsync(Claim claim)

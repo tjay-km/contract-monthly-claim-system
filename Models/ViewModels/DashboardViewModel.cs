@@ -1,4 +1,6 @@
-﻿namespace CMCS.Models
+using CMCS.Models;
+
+namespace CMCS.Models.ViewModels
 {
     public class DashboardViewModel
     {

@@ -1,4 +1,5 @@
-﻿@model IEnumerable<CMCS.Models.Claim>
+@model IEnumerable<CMCS.Models.Claim>
+@using CMCS.Models.Enums
 
 <h2>Claims</h2>
 
@@ -21,7 +22,7 @@
                 <td>@claim.HourlyRate</td>
                 <td>@claim.Status</td>
                 <td>
-                    @if (claim.Status == "Pending")
+                    @if (claim.Status == ClaimStatus.Pending)
                     {
                         <form asp-action="Approve" asp-route-id="@claim.Id" method="post" style="display: inline;">
                             <button type="submit" class="btn btn-success">Approve</button>

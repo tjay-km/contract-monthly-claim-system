@@ -1,4 +1,6 @@
 using CMCS.Models;
+using CMCS.Models.Enums;
+using CMCS.Models.ViewModels;
 using CMCS.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -27,19 +29,23 @@ namespace CMCS.Controllers
                 var claims = await _claimsService.GetAllClaimsAsync();
                 viewModel.Claims = claims
                     .Where(c => c.LecturerName == User.Identity.Name)
-                    .OrderByDescending(c => c.DateSubmitted)
+                    .OrderByDescending(c => c.SubmissionDate)
                     .ToList();
             }
             else if (User.IsInRole("ProgrammeCoordinator") || User.IsInRole("AcademicManager"))
             {
                 var allClaims = await _claimsService.GetAllClaimsAsync();
+                var approvedStatuses = new[] { ClaimStatus.Approved };
+                var pendingStatuses = new[] { ClaimStatus.Pending };
+                var rejectedStatuses = new[] { ClaimStatus.Rejected };
+
                 viewModel.PendingClaims = allClaims
-                    .Where(c => c.Status == "Pending")
-                    .OrderByDescending(c => c.DateSubmitted)
+                    .Where(c => pendingStatuses.Contains(c.Status))
+                    .OrderByDescending(c => c.SubmissionDate)
                     .ToList();
                 viewModel.ManagedClaims = allClaims
-                    .Where(c => c.Status == "Approved" || c.Status == "Rejected")
-                    .OrderByDescending(c => c.DateSubmitted)
+                    .Where(c => approvedStatuses.Contains(c.Status) || rejectedStatuses.Contains(c.Status))
+                    .OrderByDescending(c => c.SubmissionDate)
                     .ToList();
             }
 
@@ -49,12 +55,12 @@ namespace CMCS.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "ProgrammeCoordinator,AcademicManager")]
-        public async Task<IActionResult> UpdateClaimStatus(int id, string status)
+        public async Task<IActionResult> UpdateClaimStatus(int id, ClaimStatus status)
         {
             try
             {
-                // Only allow approval through this endpoint
-                if (status != "Approved")
+                var approvedStatuses = new[] { ClaimStatus.Approved };
+                if (!approvedStatuses.Contains(status))
                 {
                     return Json(new { success = false, message = "This endpoint only supports claim approval. For rejections, please use the dedicated rejection flow." });
                 }
