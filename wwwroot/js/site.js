@@ -15,7 +15,8 @@ function initClaimFormValidation() {
 
     const hoursWorked = document.getElementById('hoursWorked');
     const hourlyRate = document.getElementById('hourlyRate');
-    const totalAmount = document.getElementById('totalAmount');
+    const totalAmountValue = document.getElementById('totalAmountValue');
+    const totalAmountDisplay = document.getElementById('totalAmountDisplay');
     const additionalNotes = document.getElementById('AdditionalNotes');
     const fileInput = document.querySelector('input[type="file"]');
 
@@ -23,15 +24,18 @@ function initClaimFormValidation() {
         const hours = parseFloat(hoursWorked.value) || 0;
         const rate = parseFloat(hourlyRate.value) || 0;
         const total = (hours * rate).toFixed(2);
-        totalAmount.value = total;
+        
+        // Update both the hidden value and display
+        document.getElementById('totalAmountValue').value = total;
+        document.getElementById('totalAmountDisplay').value = total;
 
         // Visual feedback
-        if (total > 0) {
-            totalAmount.classList.add('is-valid');
-            totalAmount.classList.remove('is-invalid');
+        if (hours > 0 && rate > 0) {
+            document.getElementById('totalAmountDisplay').classList.add('is-valid');
+            document.getElementById('totalAmountDisplay').classList.remove('is-invalid');
         } else {
-            totalAmount.classList.add('is-invalid');
-            totalAmount.classList.remove('is-valid');
+            document.getElementById('totalAmountDisplay').classList.add('is-invalid');
+            document.getElementById('totalAmountDisplay').classList.remove('is-valid');
         }
     }
 

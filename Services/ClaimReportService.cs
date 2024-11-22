@@ -2,10 +2,14 @@ using System;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Collections.Generic;
+using System.IO;
 using Microsoft.EntityFrameworkCore;
 using CMCS.Models;
 using CMCS.Models.Enums;
 using CMCS.Data;
+using iText.Kernel.Pdf;
+using iText.Layout;
+using iText.Layout.Element;
 
 namespace CMCS.Services
 {
@@ -137,7 +141,7 @@ namespace CMCS.Services
                     // Use a PDF generation library
                     using (var stream = new FileStream(filePath, FileMode.Create))
                     {
-                        var pdf = new iText.Kernel.Pdf.PdfDocument(new iText.Kernel.Pdf.PdfWriter(stream));
+                        var pdf = new PdfDocument(new PdfWriter(stream));
                         var document = new Document(pdf);
                         
                         document.Add(new Paragraph(reportContent));
