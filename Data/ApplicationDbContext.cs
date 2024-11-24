@@ -17,8 +17,6 @@ namespace CMCS.Data
         public DbSet<ClaimAudit> ClaimAudits { get; set; }
         public DbSet<ClaimReport> ClaimReports { get; set; }
         public DbSet<AutoApprovalConfig> AutoApprovalConfigs { get; set; }
-        public DbSet<Department> Departments { get; set; }
-        public DbSet<Module> Modules { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -34,27 +32,14 @@ namespace CMCS.Data
             {
                 entity.ToTable("AspNetUsers");
                 
-                // Required fields with default values
-                entity.Property(e => e.UserName).IsRequired().HasMaxLength(256);
-                entity.Property(e => e.NormalizedUserName).IsRequired().HasMaxLength(256);
-                entity.Property(e => e.Email).IsRequired().HasMaxLength(256);
-                entity.Property(e => e.NormalizedEmail).IsRequired().HasMaxLength(256);
                 entity.Property(e => e.Name).IsRequired().HasMaxLength(100);
                 entity.Property(e => e.Role).IsRequired().HasMaxLength(50);
-
-                // Optional fields
-                entity.Property(e => e.FirstName).HasMaxLength(100).IsRequired(false);
-                entity.Property(e => e.LastName).HasMaxLength(100).IsRequired(false);
-                entity.Property(e => e.Department).HasMaxLength(100).IsRequired(false);
-                entity.Property(e => e.Specialization).HasMaxLength(100).IsRequired(false);
-
-                // Enums and booleans
-                entity.Property(e => e.UserType).HasConversion<string>().IsRequired();
-                entity.Property(e => e.IsActive).HasDefaultValue(true).IsRequired();
-
-                // Identity specific fields
-                entity.Property(e => e.SecurityStamp).IsRequired();
-                entity.Property(e => e.ConcurrencyStamp).IsRequired();
+                entity.Property(e => e.FirstName).HasMaxLength(100);
+                entity.Property(e => e.LastName).HasMaxLength(100);
+                entity.Property(e => e.Department).HasMaxLength(100);
+                entity.Property(e => e.Specialization).HasMaxLength(100);
+                entity.Property(e => e.UserType).HasConversion<string>();
+                entity.Property(e => e.IsActive).HasDefaultValue(true);
             });
 
             modelBuilder.Entity<Claim>(entity =>
@@ -70,7 +55,7 @@ namespace CMCS.Data
                 entity.Property(e => e.TotalAmount).HasPrecision(18, 2).IsRequired();
                 entity.Property(e => e.SubmissionDate).IsRequired();
                 entity.Property(e => e.AdditionalNotes).IsRequired().HasMaxLength(500);
-                entity.Property(e => e.Status).HasConversion<string>().IsRequired().HasMaxLength(50);
+                entity.Property(e => e.Status).IsRequired().HasMaxLength(50);
                 entity.Property(e => e.ModuleCode).IsRequired().HasMaxLength(20);
                 entity.Property(e => e.RejectionReason).HasMaxLength(500);
                 entity.Property(e => e.SupportingDocumentPath).HasMaxLength(1000);
@@ -91,16 +76,6 @@ namespace CMCS.Data
                     .WithOne(d => d.Claim)
                     .HasForeignKey(d => d.ClaimId)
                     .OnDelete(DeleteBehavior.NoAction);
-
-                entity.HasOne(d => d.Department)
-                    .WithMany()
-                    .HasForeignKey(d => d.DepartmentId)
-                    .OnDelete(DeleteBehavior.Restrict);
-
-                entity.HasOne(d => d.Module)
-                    .WithMany()
-                    .HasForeignKey(d => d.ModuleId)
-                    .OnDelete(DeleteBehavior.Restrict);
             });
 
             modelBuilder.Entity<ClaimDocument>(entity =>
@@ -158,35 +133,6 @@ namespace CMCS.Data
                 entity.Property(e => e.LastModifiedDate).IsRequired();
                 entity.Property(e => e.EnableAutoApproval).IsRequired();
             });
-
-            modelBuilder.Entity<Department>()
-                .HasIndex(d => d.Code)
-                .IsUnique();
-
-            modelBuilder.Entity<Module>()
-                .HasIndex(m => m.Code)
-                .IsUnique();
-
-            modelBuilder.Entity<Module>()
-                .HasOne(m => m.Department)
-                .WithMany()
-                .HasForeignKey(m => m.DepartmentId)
-                .OnDelete(DeleteBehavior.Restrict);
-
-            modelBuilder.Entity<Department>().HasData(
-                new Department { Id = 1, Name = "Information Technology", Code = "IT", IsActive = true },
-                new Department { Id = 2, Name = "Computer Science", Code = "CS", IsActive = true },
-                new Department { Id = 3, Name = "Software Engineering", Code = "SE", IsActive = true }
-            );
-
-            modelBuilder.Entity<Module>().HasData(
-                new Module { Id = 1, Code = "IT101", Name = "Introduction to Programming", DepartmentId = 1, IsActive = true },
-                new Module { Id = 2, Code = "IT102", Name = "Database Systems", DepartmentId = 1, IsActive = true },
-                new Module { Id = 3, Code = "CS201", Name = "Data Structures", DepartmentId = 2, IsActive = true },
-                new Module { Id = 4, Code = "CS202", Name = "Algorithms", DepartmentId = 2, IsActive = true },
-                new Module { Id = 5, Code = "SE301", Name = "Software Design", DepartmentId = 3, IsActive = true },
-                new Module { Id = 6, Code = "SE302", Name = "Software Testing", DepartmentId = 3, IsActive = true }
-            );
         }
     }
 }

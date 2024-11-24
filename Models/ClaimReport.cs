@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
 
 namespace CMCS.Models
 {
@@ -16,28 +15,16 @@ namespace CMCS.Models
         }
 
         public int Id { get; set; }
-
-        [Required]
         public string GeneratedBy { get; set; }
-
         public DateTime GeneratedDate { get; set; }
-
-        [Required]
         public string ReportType { get; set; }
-
-        [Required]
         public string Status { get; set; }
-
         public DateTime StartDate { get; set; }
         public DateTime EndDate { get; set; }
-
-        [Required]
         public string FilePath { get; set; }
-
+        public virtual ICollection<Claim> Claims { get; set; }
         public decimal TotalAmount { get; set; }
         public int TotalClaims { get; set; }
-
-        public List<Claim> Claims { get; set; }
     }
 
     public class ClaimStatistics

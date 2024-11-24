@@ -4,7 +4,6 @@ using Microsoft.AspNetCore.Identity;
 using System.Security.Claims;
 using CMCS.Models;
 using System.Linq;
-using Microsoft.EntityFrameworkCore;
 
 namespace CMCS.Data
 {
@@ -14,197 +13,82 @@ namespace CMCS.Data
             RoleManager<IdentityRole> roleManager,
             UserManager<ApplicationUser> userManager)
         {
-            try
+            // Create roles if they don't exist
+            string[] roles = { "Lecturer", "ProgrammeCoordinator", "AcademicManager" };
+            foreach (var roleName in roles)
             {
-                // Create roles if they don't exist
-                string[] roles = { "Lecturer", "ProgrammeCoordinator", "AcademicManager" };
-                foreach (var roleName in roles)
+                if (!await roleManager.RoleExistsAsync(roleName))
                 {
-                    if (!await roleManager.RoleExistsAsync(roleName))
-                    {
-                        var identityRole = new IdentityRole(roleName)
-                        {
-                            NormalizedName = roleName.ToUpper()
-                        };
-                        var result = await roleManager.CreateAsync(identityRole);
-                        if (!result.Succeeded)
-                        {
-                            throw new Exception($"Failed to create role: {roleName}");
-                        }
-                    }
-
-                    var role = await roleManager.FindByNameAsync(roleName);
-                    if (role == null) continue;
-
-                    var claims = await roleManager.GetClaimsAsync(role);
-                    if (!claims.Any(c => c.Type == "Permission"))
-                    {
-                        switch (roleName)
-                        {
-                            case "Lecturer":
-                                await roleManager.AddClaimAsync(role, new System.Security.Claims.Claim("Permission", "SubmitClaim"));
-                                await roleManager.AddClaimAsync(role, new System.Security.Claims.Claim("Permission", "ViewOwnClaims"));
-                                break;
-
-                            case "ProgrammeCoordinator":
-                                await roleManager.AddClaimAsync(role, new System.Security.Claims.Claim("Permission", "ReviewClaims"));
-                                await roleManager.AddClaimAsync(role, new System.Security.Claims.Claim("Permission", "ApproveClaims"));
-                                await roleManager.AddClaimAsync(role, new System.Security.Claims.Claim("Permission", "RejectClaims"));
-                                await roleManager.AddClaimAsync(role, new System.Security.Claims.Claim("MaxApprovalAmount", "5000"));
-                                break;
-
-                            case "AcademicManager":
-                                await roleManager.AddClaimAsync(role, new System.Security.Claims.Claim("Permission", "ReviewClaims"));
-                                await roleManager.AddClaimAsync(role, new System.Security.Claims.Claim("Permission", "ApproveClaims"));
-                                await roleManager.AddClaimAsync(role, new System.Security.Claims.Claim("Permission", "RejectClaims"));
-                                await roleManager.AddClaimAsync(role, new System.Security.Claims.Claim("Permission", "ViewAllClaims"));
-                                await roleManager.AddClaimAsync(role, new System.Security.Claims.Claim("MaxApprovalAmount", "20000"));
-                                break;
-                        }
-                    }
-                }
-
-                // Add default test users if they don't exist
-                var testUsers = new[]
-                {
-                    new 
-                    { 
-                        Email = "lecturer@test.com",
-                        UserName = "lecturer@test.com",
-                        Role = "Lecturer",
-                        Department = "Computer Science",
-                        FirstName = "Lecturer",
-                        LastName = "User"
-                    },
-                    new 
-                    { 
-                        Email = "coordinator@test.com",
-                        UserName = "coordinator@test.com",
-                        Role = "ProgrammeCoordinator",
-                        Department = "Information Technology",
-                        FirstName = "Coordinator",
-                        LastName = "User"
-                    },
-                    new 
-                    { 
-                        Email = "manager@test.com",
-                        UserName = "manager@test.com",
-                        Role = "AcademicManager",
-                        Department = "Academic Affairs",
-                        FirstName = "Manager",
-                        LastName = "User"
-                    }
-                };
-
-                foreach (var userData in testUsers)
-                {
-                    var existingUser = await userManager.FindByEmailAsync(userData.Email);
-                    if (existingUser == null)
-                    {
-                        var newUser = new ApplicationUser
-                        {
-                            UserName = userData.UserName,
-                            NormalizedUserName = userData.UserName.ToUpper(),
-                            Email = userData.Email,
-                            NormalizedEmail = userData.Email.ToUpper(),
-                            EmailConfirmed = true,
-                            Department = userData.Department,
-                            FirstName = userData.FirstName,
-                            LastName = userData.LastName,
-                            Name = $"{userData.FirstName} {userData.LastName}",
-                            Role = userData.Role,
-                            UserType = GetUserType(userData.Role),
-                            IsActive = true,
-                            SecurityStamp = Guid.NewGuid().ToString("D"),
-                            ConcurrencyStamp = Guid.NewGuid().ToString("D"),
-                            LockoutEnabled = true,
-                            PhoneNumberConfirmed = false
-                        };
-
-                        var result = await userManager.CreateAsync(newUser, "Test@123");
-                        if (result.Succeeded)
-                        {
-                            await userManager.AddToRoleAsync(newUser, userData.Role);
-
-                            // Add user-specific claims
-                            await userManager.AddClaimAsync(newUser, new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.Email, userData.Email));
-                            await userManager.AddClaimAsync(newUser, new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.Role, userData.Role));
-                            await userManager.AddClaimAsync(newUser, new System.Security.Claims.Claim("Department", userData.Department));
-                        }
-                        else
-                        {
-                            var errors = string.Join(", ", result.Errors.Select(e => e.Description));
-                            throw new Exception($"Failed to create user {userData.Email}: {errors}");
-                        }
-                    }
+                    await roleManager.CreateAsync(new IdentityRole(roleName));
                 }
             }
-            catch (Exception ex)
-            {
-                throw new Exception($"Seed data initialization failed: {ex.Message}", ex);
-            }
-        }
 
-        private static UserType GetUserType(string role)
-        {
-            return role?.ToUpper() switch
+            // Add claims to roles
+            var lecturerRole = await roleManager.FindByNameAsync("Lecturer");
+            var coordinatorRole = await roleManager.FindByNameAsync("ProgrammeCoordinator");
+            var managerRole = await roleManager.FindByNameAsync("AcademicManager");
+
+            // Lecturer claims
+            if (!await roleManager.GetClaimsAsync(lecturerRole).ContinueWith(t => t.Result.Any(c => c.Type == "Permission")))
             {
-                "LECTURER" => UserType.Lecturer,
-                "PROGRAMMECOORDINATOR" => UserType.HOD,
-                "ACADEMICMANAGER" => UserType.HR,
-                _ => UserType.Lecturer
+                await roleManager.AddClaimAsync(lecturerRole, new System.Security.Claims.Claim("Permission", "SubmitClaim"));
+                await roleManager.AddClaimAsync(lecturerRole, new System.Security.Claims.Claim("Permission", "ViewOwnClaims"));
+            }
+
+            // Programme Coordinator claims
+            if (!await roleManager.GetClaimsAsync(coordinatorRole).ContinueWith(t => t.Result.Any(c => c.Type == "Permission")))
+            {
+                await roleManager.AddClaimAsync(coordinatorRole, new System.Security.Claims.Claim("Permission", "ReviewClaims"));
+                await roleManager.AddClaimAsync(coordinatorRole, new System.Security.Claims.Claim("Permission", "ApproveClaims"));
+                await roleManager.AddClaimAsync(coordinatorRole, new System.Security.Claims.Claim("Permission", "RejectClaims"));
+                await roleManager.AddClaimAsync(coordinatorRole, new System.Security.Claims.Claim("MaxApprovalAmount", "5000"));
+            }
+
+            // Academic Manager claims
+            if (!await roleManager.GetClaimsAsync(managerRole).ContinueWith(t => t.Result.Any(c => c.Type == "Permission")))
+            {
+                await roleManager.AddClaimAsync(managerRole, new System.Security.Claims.Claim("Permission", "ReviewClaims"));
+                await roleManager.AddClaimAsync(managerRole, new System.Security.Claims.Claim("Permission", "ApproveClaims"));
+                await roleManager.AddClaimAsync(managerRole, new System.Security.Claims.Claim("Permission", "RejectClaims"));
+                await roleManager.AddClaimAsync(managerRole, new System.Security.Claims.Claim("Permission", "ViewAllClaims"));
+                await roleManager.AddClaimAsync(managerRole, new System.Security.Claims.Claim("MaxApprovalAmount", "20000"));
+            }
+
+            // Add default test users if they don't exist
+            var testUsers = new[]
+            {
+                new { Email = "lecturer@test.com", Role = "Lecturer", Department = "Computer Science" },
+                new { Email = "coordinator@test.com", Role = "ProgrammeCoordinator", Department = "Information Technology" },
+                new { Email = "manager@test.com", Role = "AcademicManager", Department = "Academic Affairs" }
             };
-        }
 
-        public static async Task InitializeDepartmentsAndModules(ApplicationDbContext context)
-        {
-            // Check if departments already exist
-            if (!await context.Departments.AnyAsync())
+            foreach (var user in testUsers)
             {
-                var departments = new[]
+                var existingUser = await userManager.FindByEmailAsync(user.Email);
+                if (existingUser == null)
                 {
-                    new Department { Name = "Information Technology", Code = "IT", IsActive = true },
-                    new Department { Name = "Computer Science", Code = "CS", IsActive = true },
-                    new Department { Name = "Software Engineering", Code = "SE", IsActive = true },
-                    new Department { Name = "Information Systems", Code = "IS", IsActive = true },
-                    new Department { Name = "Artificial Intelligence", Code = "AI", IsActive = true }
-                };
-
-                await context.Departments.AddRangeAsync(departments);
-                await context.SaveChangesAsync();
-
-                // Add modules for each department
-                var modules = new List<Module>();
-                foreach (var dept in departments)
-                {
-                    modules.AddRange(new[]
+                    var newUser = new ApplicationUser
                     {
-                        new Module { 
-                            Code = $"{dept.Code}101", 
-                            Name = $"Introduction to {dept.Name}", 
-                            Credits = 15, 
-                            DepartmentId = dept.Id,
-                            IsActive = true 
-                        },
-                        new Module { 
-                            Code = $"{dept.Code}201", 
-                            Name = $"Intermediate {dept.Name}", 
-                            Credits = 15, 
-                            DepartmentId = dept.Id,
-                            IsActive = true 
-                        },
-                        new Module { 
-                            Code = $"{dept.Code}301", 
-                            Name = $"Advanced {dept.Name}", 
-                            Credits = 15, 
-                            DepartmentId = dept.Id,
-                            IsActive = true 
-                        }
-                    });
-                }
+                        UserName = user.Email,
+                        Email = user.Email,
+                        EmailConfirmed = true,
+                        Department = user.Department,
+                        FirstName = user.Role.Replace("Programme", "").Replace("Academic", ""),
+                        LastName = "User",
+                        Name = $"{user.Role.Replace("Programme", "").Replace("Academic", "")} User"
+                    };
 
-                await context.Modules.AddRangeAsync(modules);
-                await context.SaveChangesAsync();
+                    var result = await userManager.CreateAsync(newUser, "Test@123");
+                    if (result.Succeeded)
+                    {
+                        await userManager.AddToRoleAsync(newUser, user.Role);
+
+                        // Add user-specific claims
+                        await userManager.AddClaimAsync(newUser, new System.Security.Claims.Claim("Email", user.Email));
+                        await userManager.AddClaimAsync(newUser, new System.Security.Claims.Claim("Role", user.Role));
+                        await userManager.AddClaimAsync(newUser, new System.Security.Claims.Claim("Department", user.Department));
+                    }
+                }
             }
         }
     }

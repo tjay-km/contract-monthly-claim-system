@@ -55,12 +55,7 @@
                                         }
                                     </td>
                                     <td class="border px-4 py-2">
-                                        @if (claim.Status == ClaimStatus.Pending)
-                                        {
-                                            <button type="button" class="btn btn-primary btn-sm">Review</button>
-                                        }
                                         @if (claim.SupportingDocumentPath != null)
-
                                         {
                                             <a href="@Url.Action("DownloadDocument", "Claim", new { id = claim.Id })" class="text-blue-500 hover:text-blue-700">Download Document</a>
                                         }
@@ -102,10 +97,6 @@
                                     <span class="badge badge-warning">@claim.Status</span>
                                 }
                             </p>
-                            @if (claim.Status == ClaimStatus.Pending)
-                            {
-                                <button type="button" class="btn btn-primary btn-sm">Review</button>
-                            }
                             @if (claim.SupportingDocumentPath != null)
 
                             {

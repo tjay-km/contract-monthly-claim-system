@@ -1,4 +1,5 @@
-@model IEnumerable<CMCS.Models.ViewModels.LecturerManagementViewModel>
+@using CMCS.Models.Enums
+@model CMCS.Models.HRDashboardViewModel
 @{
     ViewData["Title"] = "HR Dashboard";
 }
@@ -25,7 +26,7 @@
             <div class="card bg-primary text-white">
                 <div class="card-body">
                     <h5 class="card-title">Total Claims</h5>
-                    <h3>@ViewBag.TotalClaims</h3>
+                    <h3>@Model.TotalClaims</h3>
                 </div>
             </div>
         </div>
@@ -33,7 +34,7 @@
             <div class="card bg-success text-white">
                 <div class="card-body">
                     <h5 class="card-title">Approved Claims</h5>
-                    <h3>@ViewBag.ApprovedClaims</h3>
+                    <h3>@Model.ApprovedClaims</h3>
                 </div>
             </div>
         </div>
@@ -41,7 +42,7 @@
             <div class="card bg-warning text-dark">
                 <div class="card-body">
                     <h5 class="card-title">Pending Claims</h5>
-                    <h3>@ViewBag.PendingClaims</h3>
+                    <h3>@Model.PendingClaims</h3>
                 </div>
             </div>
         </div>
@@ -49,7 +50,7 @@
             <div class="card bg-info text-white">
                 <div class="card-body">
                     <h5 class="card-title">Total Claim Amount</h5>
-                    <h3>R@(ViewBag.TotalClaimAmount > 0 ? ViewBag.TotalClaimAmount.ToString("N2") : "0.00")</h3>
+                    <h3>@Model.TotalClaimAmount.ToString("C")</h3>
                 </div>
             </div>
         </div>
@@ -75,17 +76,19 @@
                             </tr>
                         </thead>
                         <tbody>
-                            @foreach (var claim in ViewBag.RecentClaims)
+                            @foreach (var claim in Model.RecentClaims)
                             {
                                 <tr>
                                     <td>@claim.ClaimId</td>
                                     <td>@claim.LecturerName</td>
                                     <td>@claim.Department</td>
-                                    <td>R@(claim.TotalAmount > 0 ? claim.TotalAmount.ToString("N2") : "0.00")</td>
+                                    <td>@claim.TotalAmount.ToString("C")</td>
                                     <td>
-                                        <span class="badge @(claim.Status.Trim().Equals("Approved", StringComparison.OrdinalIgnoreCase) ? "bg-success" : 
-                                                           claim.Status.Trim().Equals("Pending", StringComparison.OrdinalIgnoreCase) ? "bg-warning" : 
-                                                           claim.Status.Trim().Equals("Rejected", StringComparison.OrdinalIgnoreCase) ? "bg-danger" : "bg-secondary")">
+                                        <span class="badge @(claim.Status == ClaimStatus.Approved ? "bg-success" : 
+                                                           claim.Status == ClaimStatus.Pending ? "bg-warning" : 
+                                                           claim.Status == ClaimStatus.Rejected ? "bg-danger" : 
+                                                           claim.Status == ClaimStatus.PendingReview ? "bg-info" :
+                                                           claim.Status == ClaimStatus.PendingAcademicManagerApproval ? "bg-primary" : "bg-secondary")">
                                             @claim.Status
                                         </span>
                                     </td>
@@ -117,13 +120,13 @@
                             </tr>
                         </thead>
                         <tbody>
-                            @foreach (var user in ViewBag.UserSummaries)
+                            @foreach (var user in Model.UserSummaries)
                             {
                                 <tr>
                                     <td>@user.Name</td>
                                     <td>@user.Department</td>
                                     <td>@user.TotalClaims</td>
-                                    <td>R@(user.TotalClaimAmount > 0 ? user.TotalClaimAmount.ToString("N2") : "0.00")</td>
+                                    <td>@user.TotalClaimAmount.ToString("C")</td>
                                 </tr>
                             }
                         </tbody>
@@ -135,8 +138,11 @@
 
     <!-- Lecturer Management Section -->
     <div class="card mb-4">
-        <div class="card-header">
-            <h4>Lecturer Management</h4>
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h4 class="mb-0">Lecturer Management</h4>
+            <button type="button" class="btn btn-primary" onclick="addNewLecturer()">
+                <i class="fas fa-plus"></i> Add New Lecturer
+            </button>
         </div>
         <div class="card-body">
             <div class="table-responsive">
@@ -146,39 +152,25 @@
                             <th>Name</th>
                             <th>Department</th>
                             <th>Email</th>
-                            <th>Phone</th>
                             <th>Specialization</th>
                             <th>Status</th>
                             <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
-                        @foreach (var lecturer in Model)
+                        @foreach (var lecturer in Model.Lecturers)
                         {
                             <tr>
-                                <td>@lecturer.FullName</td>
+                                <td>@(lecturer.FirstName + " " + lecturer.LastName)</td>
                                 <td>@lecturer.Department</td>
                                 <td>@lecturer.Email</td>
-                                <td>@lecturer.PhoneNumber</td>
                                 <td>@lecturer.Specialization</td>
+                                <td>@(lecturer.IsActive ? "Active" : "Inactive")</td>
                                 <td>
-                                    <span class="badge @(lecturer.IsActive ? "bg-success" : "bg-danger")">
-                                        @(lecturer.IsActive ? "Active" : "Inactive")
-                                    </span>
-                                </td>
-                                <td>
-                                    <div class="btn-group">
-                                        <button type="button" class="btn btn-primary btn-sm" 
-                                                onclick="editLecturer('@lecturer.Id')" 
-                                                title="Edit">
-                                            <i class="fas fa-edit"></i>
-                                        </button>
-                                        <button type="button" class="btn @(lecturer.IsActive ? "btn-danger" : "btn-success") btn-sm"
-                                                onclick="toggleLecturerStatus('@lecturer.Id', @(!lecturer.IsActive).ToString().ToLower())"
-                                                title="@(lecturer.IsActive ? "Deactivate" : "Activate")">
-                                            <i class="fas @(lecturer.IsActive ? "fa-user-times" : "fa-user-check")"></i>
-                                        </button>
-                                    </div>
+                                    <a href="@Url.Action("EditLecturer", "HR", new { id = lecturer.Id })" class="btn btn-primary btn-sm">Edit</a>
+                                    <button onclick="toggleLecturerStatus('@lecturer.Id', @lecturer.IsActive.ToString().ToLower())" class="btn @(lecturer.IsActive ? "btn-danger" : "btn-success") btn-sm">
+                                        @(lecturer.IsActive ? "Deactivate" : "Activate")
+                                    </button>
                                 </td>
                             </tr>
                         }
@@ -265,17 +257,20 @@
             });
         }
 
-        function toggleLecturerStatus(id, activate) {
-            if (!confirm('Are you sure you want to ' + (activate ? 'activate' : 'deactivate') + ' this lecturer?')) {
-                return;
+        function toggleLecturerStatus(lecturerId, currentStatus) {
+            if (confirm('Are you sure you want to ' + (currentStatus ? 'deactivate' : 'activate') + ' this lecturer?')) {
+                $.post('@Url.Action("ToggleLecturerStatus", "HR")', { id: lecturerId })
+                    .done(function() {
+                        location.reload();
+                    })
+                    .fail(function() {
+                        alert('Failed to update lecturer status. Please try again.');
+                    });
             }
-            $.post('/HR/ToggleLecturerStatus', { id: id, activate: activate }, function(response) {
-                if (response.success) {
-                    window.location.reload();
-                } else {
-                    alert('Error updating lecturer status: ' + response.message);
-                }
-            });
+        }
+
+        function addNewLecturer() {
+            // Add new lecturer functionality here
         }
     </script>
 }

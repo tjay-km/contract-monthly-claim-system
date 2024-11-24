@@ -36,11 +36,9 @@ namespace CMCS.Services
 
         public async Task<ClaimReport> GetReportAsync(int id)
         {
-            var report = await _context.ClaimReports
+            return await _context.ClaimReports
                 .Include(r => r.Claims)
                 .FirstOrDefaultAsync(r => r.Id == id);
-
-            return report ?? new ClaimReport();
         }
 
         public async Task<IEnumerable<ClaimReport>> GetRecentReportsAsync(int count = 5)
@@ -48,7 +46,7 @@ namespace CMCS.Services
             return await _context.ClaimReports
                 .OrderByDescending(r => r.GeneratedDate)
                 .Take(count)
-                .ToListAsync() ?? new List<ClaimReport>();
+                .ToListAsync();
         }
 
         public async Task<ClaimReport> GenerateReportAsync(DateTime startDate, DateTime endDate, string reportType, string generatedBy)
@@ -58,15 +56,15 @@ namespace CMCS.Services
                 System.Diagnostics.Debug.WriteLine($"Starting report generation - Type: {reportType}, Start: {startDate}, End: {endDate}");
                 Console.WriteLine($"Starting report generation - Type: {reportType}, Start: {startDate}, End: {endDate}");
 
+                // Debugging: Log all claims in the database with more details
                 var allClaims = await _context.Claims
-                    .Include(c => c.User)
-                    .Where(c => c != null && c.User != null)
+                    .Include(c => c.User)  // Ensure related user data is loaded
                     .ToListAsync();
 
                 System.Diagnostics.Debug.WriteLine($"Total Claims in Database: {allClaims.Count}");
                 Console.WriteLine($"Total Claims in Database: {allClaims.Count}");
 
-                foreach (var claim in allClaims.Where(c => c != null))
+                foreach (var claim in allClaims)
                 {
                     System.Diagnostics.Debug.WriteLine(
                         $"Claim - ID: {claim.Id}, " +
@@ -76,31 +74,43 @@ namespace CMCS.Services
                         $"Status: {claim.Status}, " +
                         $"User: {claim.User?.Name ?? "No User"}"
                     );
+                    Console.WriteLine(
+                        $"Claim - ID: {claim.Id}, " +
+                        $"Lecturer: {claim.LecturerName}, " +
+                        $"Date: {claim.SubmissionDate}, " +
+                        $"Amount: {claim.TotalAmount}, " +
+                        $"Status: {claim.Status}, " +
+                        $"User: {claim.User?.Name ?? "No User"}"
+                    );
                 }
 
+                // More flexible claim filtering
                 var claims = allClaims
                     .Where(c => 
-                        c != null &&
                         c.SubmissionDate.Date >= startDate.Date && 
                         c.SubmissionDate.Date <= endDate.Date
                     )
                     .OrderBy(c => c.SubmissionDate)
                     .ToList();
 
+                System.Diagnostics.Debug.WriteLine($"Found {claims.Count} claims in the specified date range");
+                Console.WriteLine($"Found {claims.Count} claims in the specified date range");
+
                 var report = new ClaimReport
                 {
                     StartDate = startDate,
                     EndDate = endDate,
                     GeneratedDate = DateTime.Now,
-                    GeneratedBy = generatedBy ?? string.Empty,
-                    ReportType = reportType ?? "Summary",
+                    GeneratedBy = generatedBy,
+                    ReportType = reportType,
                     Status = "Generated",
-                    Claims = claims ?? new List<Claim>()
+                    Claims = claims
                 };
 
                 var statistics = await CalculateStatisticsAsync(claims);
                 var reportContent = GenerateReportContent(claims, statistics, reportType);
 
+                // Improved file path generation with more robust error handling
                 var baseDirectory = AppDomain.CurrentDomain.BaseDirectory;
                 var reportsDirectory = Path.Combine(
                     baseDirectory, 
@@ -109,41 +119,89 @@ namespace CMCS.Services
                     DateTime.Now.Month.ToString()
                 );
                 
-                Directory.CreateDirectory(reportsDirectory);
+                // Ensure directory exists with proper error handling
+                try 
+                {
+                    Directory.CreateDirectory(reportsDirectory);
+                    System.Diagnostics.Debug.WriteLine($"Created reports directory: {reportsDirectory}");
+                    Console.WriteLine($"Created reports directory: {reportsDirectory}");
+                }
+                catch (Exception dirEx)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Error creating reports directory: {dirEx.Message}");
+                    Console.WriteLine($"Error creating reports directory: {dirEx.Message}");
+                    throw;
+                }
 
                 var fileName = $"Report_{DateTime.Now:yyyyMMddHHmmss}_{Guid.NewGuid():N}.pdf";
                 var filePath = Path.Combine(reportsDirectory, fileName);
 
                 try 
                 {
+                    // Use a PDF generation library
                     using (var stream = new FileStream(filePath, FileMode.Create))
                     {
                         var pdf = new PdfDocument(new PdfWriter(stream));
                         var document = new Document(pdf);
                         
-                        document.Add(new Paragraph(reportContent ?? string.Empty));
+                        document.Add(new Paragraph(reportContent));
                         document.Close();
                     }
                     
+                    System.Diagnostics.Debug.WriteLine($"Report PDF created: {filePath}");
+                    Console.WriteLine($"Report PDF created: {filePath}");
+
                     report.FilePath = filePath;
                 }
                 catch (Exception fileEx)
                 {
+                    System.Diagnostics.Debug.WriteLine($"Error writing report file: {fileEx.Message}");
+                    Console.WriteLine($"Error writing report file: {fileEx.Message}");
+                    
                     report.Status = "Failed";
-                    report.FilePath = string.Empty;
-                    LogError("Error writing report file", fileEx);
+                    report.FilePath = null;
+                    
+                    // Log to a file
+                    try 
+                    {
+                        var logPath = Path.Combine(baseDirectory, "report_generation_errors.txt");
+                        await System.IO.File.AppendAllTextAsync(logPath, 
+                            $"{DateTime.Now}: Report File Creation Error\n" +
+                            $"Message: {fileEx.Message}\n" +
+                            $"Stack Trace: {fileEx.StackTrace}\n\n");
+                    }
+                    catch { }
+
                     throw;
                 }
 
                 _context.ClaimReports.Add(report);
                 await _context.SaveChangesAsync();
 
+                System.Diagnostics.Debug.WriteLine($"Report saved to database - ID: {report.Id}");
+                Console.WriteLine($"Report saved to database - ID: {report.Id}");
+
                 return report;
             }
             catch (Exception ex)
             {
-                LogError("Comprehensive Report Generation Error", ex);
-                throw;
+                System.Diagnostics.Debug.WriteLine($"Comprehensive Report Generation Error: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"Stack Trace: {ex.StackTrace}");
+                Console.WriteLine($"Comprehensive Report Generation Error: {ex.Message}");
+                Console.WriteLine($"Stack Trace: {ex.StackTrace}");
+
+                // Log to a file for additional debugging
+                try 
+                {
+                    var logPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "report_service_errors.txt");
+                    await System.IO.File.AppendAllTextAsync(logPath, 
+                        $"{DateTime.Now}: Comprehensive Report Generation Error\n" +
+                        $"Message: {ex.Message}\n" +
+                        $"Stack Trace: {ex.StackTrace}\n\n");
+                }
+                catch { }
+
+                throw; // Rethrow to allow controller to handle
             }
         }
 
@@ -156,15 +214,8 @@ namespace CMCS.Services
 
         public async Task<bool> UpdateAutoApprovalConfigAsync(AutoApprovalConfig config, string modifiedBy)
         {
-            if (config == null)
-                throw new ArgumentNullException(nameof(config));
-            
-            if (string.IsNullOrEmpty(modifiedBy))
-                throw new ArgumentException("Modified by cannot be empty", nameof(modifiedBy));
-
             config.LastModifiedDate = DateTime.Now;
             config.LastModifiedBy = modifiedBy;
-            config.Description ??= string.Empty;
 
             _context.AutoApprovalConfigs.Add(config);
             await _context.SaveChangesAsync();
@@ -174,42 +225,31 @@ namespace CMCS.Services
         public async Task<string> GetReportFilePath(int reportId)
         {
             var report = await _context.ClaimReports.FindAsync(reportId);
-            return report?.FilePath ?? string.Empty;
+            return report?.FilePath;
         }
 
         public async Task<AutoApprovalConfig> GetAutoApprovalConfigAsync()
         {
-            var config = await _context.AutoApprovalConfigs
+            return await _context.AutoApprovalConfigs
                 .OrderByDescending(c => c.LastModifiedDate)
                 .FirstOrDefaultAsync();
-
-            if (config == null)
-            {
-                config = new AutoApprovalConfig
-                {
-                    MaxAutoApprovalAmount = 5000m,
-                    EnableAutoApproval = true,
-                    LastModifiedBy = "System",
-                    LastModifiedDate = DateTime.Now,
-                    Description = "Default auto-approval configuration"
-                };
-                _context.AutoApprovalConfigs.Add(config);
-                await _context.SaveChangesAsync();
-            }
-
-            return config;
         }
 
         public async Task<ClaimStatistics> GetClaimStatisticsAsync(List<Claim> claims)
         {
-            if (claims == null)
-                throw new ArgumentNullException(nameof(claims));
-
             return await CalculateStatisticsAsync(claims);
         }
 
         private string GenerateReportContent(List<Claim> claims, ClaimStatistics statistics, string reportType)
         {
+            // Debugging: Log statistics details
+            System.Diagnostics.Debug.WriteLine($"Generating Report Content - Report Type: {reportType}");
+            System.Diagnostics.Debug.WriteLine($"Total Claims: {statistics.TotalClaims}");
+            System.Diagnostics.Debug.WriteLine($"Total Amount: {statistics.TotalAmount}");
+            System.Diagnostics.Debug.WriteLine($"Pending Claims: {statistics.PendingClaims}");
+            System.Diagnostics.Debug.WriteLine($"Approved Claims: {statistics.ApprovedClaims}");
+            System.Diagnostics.Debug.WriteLine($"Rejected Claims: {statistics.RejectedClaims}");
+
             var content = $"Claims Report ({reportType})\n";
             content += $"Generated on: {DateTime.Now}\n\n";
 
@@ -221,16 +261,18 @@ namespace CMCS.Services
             content += $"Approved Claims: {statistics.ApprovedClaims}\n";
             content += $"Rejected Claims: {statistics.RejectedClaims}\n\n";
 
-            if (statistics.DepartmentStatistics != null && statistics.DepartmentStatistics.Count > 0)
+            // Only add department breakdown if there are claims
+            if (statistics.ClaimsByDepartment != null && statistics.ClaimsByDepartment.Count > 0)
             {
                 content += "Claims by Department:\n";
-                foreach (var dept in statistics.DepartmentStatistics)
+                foreach (var dept in statistics.ClaimsByDepartment)
                 {
                     content += $"{dept.Key}: {dept.Value.TotalClaims} claims, R{dept.Value.TotalAmount:N2}\n";
                 }
                 content += "\n";
             }
 
+            // Detailed claims section based on report type
             if (reportType == "Detailed" && claims.Any())
             {
                 content += "Detailed Claims:\n";
@@ -245,11 +287,18 @@ namespace CMCS.Services
                 }
             }
 
+            // Debugging: Log generated content
+            System.Diagnostics.Debug.WriteLine("Generated Report Content:");
+            System.Diagnostics.Debug.WriteLine(content);
+
             return content;
         }
 
         private async Task<ClaimStatistics> CalculateStatisticsAsync(List<Claim> claims)
         {
+            // Debugging: Log input claims
+            System.Diagnostics.Debug.WriteLine($"Calculating Statistics for {claims.Count} claims");
+
             var approvedClaims = claims.Where(c => c.Status == ClaimStatus.Approved).ToList();
             var pendingClaims = claims.Where(c => c.Status == ClaimStatus.Pending).ToList();
             var rejectedClaims = claims.Where(c => c.Status == ClaimStatus.Rejected).ToList();
@@ -262,7 +311,7 @@ namespace CMCS.Services
                 PendingClaims = pendingClaims.Count,
                 ApprovedClaims = approvedClaims.Count,
                 RejectedClaims = rejectedClaims.Count,
-                DepartmentStatistics = claims
+                ClaimsByDepartment = claims
                     .GroupBy(c => c.LecturerDepartment ?? "Unknown")
                     .ToDictionary(
                         g => g.Key,
@@ -280,37 +329,27 @@ namespace CMCS.Services
                 }
             };
 
-            return statistics;
-        }
+            // Debugging: Log calculated statistics
+            System.Diagnostics.Debug.WriteLine($"Total Claims: {statistics.TotalClaims}");
+            System.Diagnostics.Debug.WriteLine($"Total Amount: {statistics.TotalAmount}");
+            System.Diagnostics.Debug.WriteLine($"Pending Claims: {statistics.PendingClaims}");
+            System.Diagnostics.Debug.WriteLine($"Approved Claims: {statistics.ApprovedClaims}");
+            System.Diagnostics.Debug.WriteLine($"Rejected Claims: {statistics.RejectedClaims}");
 
-        private async void LogError(string message, Exception ex)
-        {
-            try 
-            {
-                var logPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "report_service_errors.txt");
-                await File.AppendAllTextAsync(logPath, 
-                    $"{DateTime.Now}: {message}\n" +
-                    $"Message: {ex.Message}\n" +
-                    $"Stack Trace: {ex.StackTrace}\n\n");
-            }
-            catch 
-            {
-                System.Diagnostics.Debug.WriteLine($"{message}: {ex.Message}");
-                Console.WriteLine($"{message}: {ex.Message}");
-            }
+            return statistics;
         }
     }
 
     public class ClaimStatistics
     {
         public int TotalClaims { get; set; }
+        public decimal TotalAmount { get; set; }
+        public decimal AverageAmount { get; set; }
         public int PendingClaims { get; set; }
         public int ApprovedClaims { get; set; }
         public int RejectedClaims { get; set; }
-        public decimal TotalAmount { get; set; }
-        public decimal AverageAmount { get; set; }
-        public Dictionary<string, DepartmentStats> DepartmentStatistics { get; set; } = new();
-        public Dictionary<string, int> ClaimsByStatus { get; set; } = new();
+        public Dictionary<string, DepartmentStats> ClaimsByDepartment { get; set; }
+        public Dictionary<string, int> ClaimsByStatus { get; set; }
     }
 
     public class DepartmentStats

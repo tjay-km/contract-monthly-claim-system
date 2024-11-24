@@ -1,14 +1,16 @@
-using Xunit;
+using NUnit.Framework;
 
-namespace CMCS.Tests
+namespace CMCS.Tests.New
 {
+    [TestFixture]
     public class UnitTest1
     {
-        [Fact]
+        [Test]
         public void Test1()
         {
             // Placeholder test
-            Assert.True(true);
+            var result = true;
+            Assert.That(result, Is.True);
         }
     }
 }

@@ -4,9 +4,27 @@ namespace CMCS.Models
 {
     public class RegisterViewModel
     {
+        public RegisterViewModel()
+        {
+            FirstName = string.Empty;
+            LastName = string.Empty;
+            Email = string.Empty;
+            UserName = string.Empty;
+            Password = string.Empty;
+            ConfirmPassword = string.Empty;
+            Role = string.Empty;
+            Department = string.Empty;
+        }
+
         [Required]
         [StringLength(100)]
-        public string Name { get; set; }
+        [Display(Name = "First Name")]
+        public string FirstName { get; set; }
+
+        [Required]
+        [StringLength(100)]
+        [Display(Name = "Last Name")]
+        public string LastName { get; set; }
 
         [Required]
         [EmailAddress]
@@ -32,5 +50,9 @@ namespace CMCS.Models
         [Required]
         [Display(Name = "Role")]
         public string Role { get; set; }
+
+        [Required]
+        [Display(Name = "Department")]
+        public string Department { get; set; }
     }
 }

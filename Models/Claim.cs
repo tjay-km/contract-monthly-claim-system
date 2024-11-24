@@ -16,13 +16,9 @@ namespace CMCS.Models
             LecturerDepartment = string.Empty;
             AdditionalNotes = string.Empty;
             ModuleCode = string.Empty;
-            RejectionReason = string.Empty;
-            SupportingDocumentPath = string.Empty;
-            ReviewedBy = string.Empty;
-            ApprovalComments = string.Empty;
-            Documents = new List<ClaimDocument>();
             Status = ClaimStatus.Pending;
             SubmissionDate = DateTime.Now;
+            Documents = new List<ClaimDocument>();
         }
 
         public int Id { get; set; }
@@ -41,12 +37,14 @@ namespace CMCS.Models
         [Required(ErrorMessage = "Hours worked is required")]
         [Display(Name = "Hours Worked")]
         [Range(0.5, 195, ErrorMessage = "Hours worked must be between 0.5 and 195")]
+        [Column(TypeName = "decimal(18,2)")]
         public decimal HoursWorked { get; set; }
 
         [Required(ErrorMessage = "Hourly rate is required")]
         [Display(Name = "Hourly Rate")]
-        [Range(1, 20000, ErrorMessage = "Hourly rate must be between 1 and 20000")]
+        [Range(0.01, 20000, ErrorMessage = "Hourly rate must be between 0.01 and 20000")]
         [DataType(DataType.Currency)]
+        [Column(TypeName = "decimal(18,2)")]
         public decimal HourlyRate { get; set; }
 
         [Display(Name = "Total Amount")]
@@ -67,15 +65,16 @@ namespace CMCS.Models
 
         [Required(ErrorMessage = "Additional notes are required")]
         [Display(Name = "Additional Notes")]
-        [MinLength(10, ErrorMessage = "Additional notes must be at least 10 characters long")]
-        [MaxLength(500, ErrorMessage = "Additional notes cannot exceed 500 characters")]
+        [MaxLength(500)]
         public string AdditionalNotes { get; set; }
 
         [Required(ErrorMessage = "Status is required")]
+        [Column(TypeName = "nvarchar(50)")]
         public ClaimStatus Status { get; set; }
 
         [Display(Name = "Rejection Reason")]
-        public string RejectionReason { get; set; }
+        [MaxLength(500)]
+        public string? RejectionReason { get; set; }
 
         [Required(ErrorMessage = "Module code is required")]
         [Display(Name = "Module Code")]
@@ -87,7 +86,8 @@ namespace CMCS.Models
         public IFormFile? SupportingDocument { get; set; }
 
         [Display(Name = "Supporting Document Path")]
-        public string SupportingDocumentPath { get; set; }
+        [MaxLength(1000)]
+        public string? SupportingDocumentPath { get; set; }
 
         public string? UserId { get; set; }
 
@@ -95,25 +95,17 @@ namespace CMCS.Models
 
         [Display(Name = "Reviewed By")]
         [StringLength(256)]
-        public string ReviewedBy { get; set; }
+        public string? ReviewedBy { get; set; }
 
         [Display(Name = "Approval Comments")]
         [StringLength(500)]
-        public string ApprovalComments { get; set; }
+        public string? ApprovalComments { get; set; }
 
-        [ForeignKey("UserId")]
         public virtual ApplicationUser? User { get; set; }
-        [ForeignKey("ReviewerId")]
         public virtual ApplicationUser? Reviewer { get; set; }
 
-        public int? DepartmentId { get; set; }
-        [ForeignKey("DepartmentId")]
-        public virtual Department? Department { get; set; }
-
-        public int? ModuleId { get; set; }
-        [ForeignKey("ModuleId")]
-        public virtual Module? Module { get; set; }
-
         public virtual ICollection<ClaimDocument> Documents { get; set; }
+
+        public int? ClaimReportId { get; set; }
     }
 }

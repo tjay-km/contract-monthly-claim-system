@@ -14,8 +14,6 @@ using CMCS.Services;
 using System.Security.Claims;
 using ClaimModel = CMCS.Models.Claim;
 using Microsoft.AspNetCore.Identity;
-using CMCS.Data;
-using Microsoft.EntityFrameworkCore;
 
 namespace CMCS.Controllers
 {
@@ -30,22 +28,19 @@ namespace CMCS.Controllers
         private readonly IDocumentService _documentService;
         private readonly IClaimApprovalService _approvalService;
         private readonly UserManager<ApplicationUser> _userManager;
-        private readonly ApplicationDbContext _context;
 
         public ClaimController(
             IClaimsService claimsService,
             ILogger<ClaimController> logger,
             IDocumentService documentService,
             IClaimApprovalService approvalService,
-            UserManager<ApplicationUser> userManager,
-            ApplicationDbContext context)
+            UserManager<ApplicationUser> userManager)
         {
             _claimsService = claimsService;
             _logger = logger;
             _documentService = documentService;
             _approvalService = approvalService;
             _userManager = userManager;
-            _context = context;
         }
 
         /// <summary>
@@ -53,36 +48,14 @@ namespace CMCS.Controllers
         /// </summary>
         /// <returns>View result.</returns>
         [Authorize(Roles = "Lecturer")]
-        [HttpGet]
         public async Task<IActionResult> Submit()
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            if (string.IsNullOrEmpty(userId))
-            {
-                return RedirectToAction("Login", "Account");
-            }
-
-            var user = await _userManager.FindByIdAsync(userId);
-            if (user == null)
-            {
-                return NotFound();
-            }
-
             var claim = new ClaimModel
             {
                 LecturerId = userId,
-                LecturerName = user.FullName ?? "Unknown",
-                SubmissionDate = DateTime.Now,
-                AdditionalNotes = "",
-                ModuleCode = ""
+                LecturerName = User.Identity?.Name ?? string.Empty
             };
-
-            // Get active departments for the dropdown
-            ViewBag.Departments = await _context.Departments
-                .Where(d => d.IsActive)
-                .OrderBy(d => d.Name)
-                .ToListAsync();
-
             return View(claim);
         }
 
@@ -92,190 +65,77 @@ namespace CMCS.Controllers
         /// <param name="claim">Claim model.</param>
         /// <param name="supportingDocument">Supporting document file.</param>
         /// <returns>View result or redirect result.</returns>
-        [Authorize(Roles = "Lecturer")]
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [Authorize(Roles = "Lecturer")]
         public async Task<IActionResult> Submit(ClaimModel claim, IFormFile supportingDocument)
         {
             if (!ModelState.IsValid)
             {
-                // Repopulate departments dropdown
-                ViewBag.Departments = await _context.Departments
-                    .Where(d => d.IsActive)
-                    .OrderBy(d => d.Name)
-                    .ToListAsync();
                 return View(claim);
             }
 
             try
             {
-                // Validate department and module
-                var department = await _context.Departments.FindAsync(claim.DepartmentId);
-                var module = await _context.Modules.FindAsync(claim.ModuleId);
-
-                if (department == null || !department.IsActive)
+                var user = await _userManager.GetUserAsync(User);
+                if (user == null)
                 {
-                    ModelState.AddModelError("DepartmentId", "Please select a valid department");
-                    ViewBag.Departments = await _context.Departments
-                        .Where(d => d.IsActive)
-                        .OrderBy(d => d.Name)
-                        .ToListAsync();
+                    TempData["ErrorMessage"] = "User not found.";
                     return View(claim);
                 }
 
-                if (module == null || !module.IsActive || module.DepartmentId != claim.DepartmentId)
-                {
-                    ModelState.AddModelError("ModuleId", "Please select a valid module");
-                    ViewBag.Departments = await _context.Departments
-                        .Where(d => d.IsActive)
-                        .OrderBy(d => d.Name)
-                        .ToListAsync();
-                    return View(claim);
-                }
+                // Set user-related fields
+                claim.LecturerId = user.Id;
+                claim.LecturerName = user.Name;
+                claim.LecturerDepartment = user.Department;
+                claim.SubmissionDate = DateTime.Now;
+                claim.Status = claim.TotalAmount <= 5000 ? ClaimStatus.Approved : ClaimStatus.Pending;
 
-                // Set LecturerId if not already set
-                if (string.IsNullOrEmpty(claim.LecturerId))
+                // Set reviewer information if auto-approved
+                if (claim.Status == ClaimStatus.Approved)
                 {
-                    claim.LecturerId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-                }
-
-                // Validate file
-                if (supportingDocument == null || supportingDocument.Length == 0)
-                {
-                    ModelState.AddModelError("SupportingDocument", "Supporting document is required");
-                    ViewBag.Departments = await _context.Departments
-                        .Where(d => d.IsActive)
-                        .OrderBy(d => d.Name)
-                        .ToListAsync();
-                    return View(claim);
-                }
-
-                var allowedExtensions = new[] { ".pdf", ".doc", ".docx" };
-                var fileExtension = Path.GetExtension(supportingDocument.FileName).ToLowerInvariant();
-                
-                if (!allowedExtensions.Contains(fileExtension))
-                {
-                    TempData["ErrorMessage"] = "Please upload a valid document file (PDF, DOC, or DOCX)";
-                    ViewBag.Departments = await _context.Departments
-                        .Where(d => d.IsActive)
-                        .OrderBy(d => d.Name)
-                        .ToListAsync();
-                    return View(claim);
-                }
-
-                if (supportingDocument.Length > 5 * 1024 * 1024) // 5MB limit
-                {
-                    TempData["ErrorMessage"] = "File size cannot exceed 5MB";
-                    ViewBag.Departments = await _context.Departments
-                        .Where(d => d.IsActive)
-                        .OrderBy(d => d.Name)
-                        .ToListAsync();
-                    return View(claim);
-                }
-
-                // Calculate total amount
-                decimal calculatedTotal = claim.HoursWorked * claim.HourlyRate;
-                
-                // Validate total amount
-                if (calculatedTotal <= 0 || calculatedTotal > 3900000)
-                {
-                    ModelState.AddModelError("TotalAmount", "Total amount must be between R0.01 and R3,900,000");
-                    ViewBag.Departments = await _context.Departments
-                        .Where(d => d.IsActive)
-                        .OrderBy(d => d.Name)
-                        .ToListAsync();
-                    return View(claim);
-                }
-
-                // Auto-approve claims under R5000
-                if (calculatedTotal <= 5000)
-                {
-                    claim.Status = ClaimStatus.Approved;
                     claim.DateReviewed = DateTime.Now;
                     claim.ReviewedBy = "System";
+                    claim.ReviewerId = "System";
                     claim.ApprovalComments = "Auto-approved: Amount less than or equal to R5000";
                 }
                 else
                 {
-                    claim.Status = ClaimStatus.Pending;
+                    claim.ReviewedBy = null;
+                    claim.ReviewerId = null;
+                    claim.ApprovalComments = "Pending review";
                 }
+
+                // Ensure RejectionReason is not null
+                claim.RejectionReason = "N/A";
 
                 // Save the supporting document
-                string uniqueFileName = $"{Guid.NewGuid()}_{supportingDocument.FileName}";
-                string uploadsFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads");
-                
-                if (!Directory.Exists(uploadsFolder))
+                if (supportingDocument != null && supportingDocument.Length > 0)
                 {
-                    Directory.CreateDirectory(uploadsFolder);
+                    string documentPath = await _documentService.SaveDocumentAsync(supportingDocument);
+                    claim.SupportingDocumentPath = documentPath;
                 }
-                
-                string filePath = Path.Combine(uploadsFolder, uniqueFileName);
-                using (var fileStream = new FileStream(filePath, FileMode.Create))
-                {
-                    await supportingDocument.CopyToAsync(fileStream);
-                }
-
-                claim.SupportingDocumentPath = Path.Combine("uploads", uniqueFileName).Replace("\\", "/");
-
-                // Set submission date and user ID
-                claim.SubmissionDate = DateTime.Now;
-                claim.UserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
 
                 // Create the claim
                 var createdClaim = await _claimsService.CreateClaimAsync(claim);
 
                 if (createdClaim != null)
                 {
-                    TempData["SuccessMessage"] = claim.Status == ClaimStatus.Approved
-                        ? "Claim submitted and auto-approved successfully!"
+                    TempData["SuccessMessage"] = claim.Status == ClaimStatus.Approved 
+                        ? "Claim submitted and auto-approved successfully!" 
                         : "Claim submitted successfully and pending review.";
                     
                     return RedirectToAction(nameof(Dashboard));
                 }
 
                 TempData["ErrorMessage"] = "An error occurred while submitting your claim. Please try again.";
-                ViewBag.Departments = await _context.Departments
-                    .Where(d => d.IsActive)
-                    .OrderBy(d => d.Name)
-                    .ToListAsync();
                 return View(claim);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error submitting claim for lecturer {LecturerName}", claim.LecturerName);
                 TempData["ErrorMessage"] = "An error occurred while submitting your claim. Please try again.";
-                ViewBag.Departments = await _context.Departments
-                    .Where(d => d.IsActive)
-                    .OrderBy(d => d.Name)
-                    .ToListAsync();
                 return View(claim);
-            }
-        }
-
-        /// <summary>
-        /// Gets modules for a specific department.
-        /// </summary>
-        /// <param name="departmentId">Department ID.</param>
-        /// <returns>JSON result containing modules.</returns>
-        [HttpGet]
-        [Route("api/[controller]/[action]/{departmentId}")]
-        [Authorize(Roles = "Lecturer")]
-        public async Task<JsonResult> GetModules(int departmentId)
-        {
-            try
-            {
-                var modules = await _context.Modules
-                    .Where(m => m.DepartmentId == departmentId && m.IsActive)
-                    .OrderBy(m => m.Name)
-                    .Select(m => new { id = m.Id, name = m.Name })
-                    .ToListAsync();
-
-                return Json(modules);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error getting modules for department {DepartmentId}", departmentId);
-                return Json(new { error = "Error loading modules" });
             }
         }
 
@@ -312,9 +172,21 @@ namespace CMCS.Controllers
                 return NotFound("Claim not found.");
             }
 
+            var currentUser = await _userManager.GetUserAsync(User);
+            if (currentUser == null)
+            {
+                TempData["ErrorMessage"] = "Reviewer not found.";
+                return RedirectToAction("Index", "Dashboard");
+            }
+
             claim.Status = ClaimStatus.Approved;
+            claim.DateReviewed = DateTime.Now;
+            claim.ReviewedBy = currentUser.Name;
+            claim.ReviewerId = currentUser.Id;
+            claim.ApprovalComments = "Approved by reviewer";
+
             await _claimsService.UpdateClaimAsync(claim);
-            _logger.LogInformation($"Claim ID {id} approved.");
+            _logger.LogInformation($"Claim ID {id} approved by {currentUser.Name}");
 
             TempData["SuccessMessage"] = $"Claim ID {id} approved successfully.";
             return RedirectToAction("Index", "Dashboard");
@@ -400,17 +272,6 @@ namespace CMCS.Controllers
             var mimeType = "application/octet-stream";
 
             return PhysicalFile(filePath, mimeType, fileName);
-        }
-
-        private ClaimStatus GetClaimStatusFromString(string status)
-        {
-            return status switch
-            {
-                "Pending" => ClaimStatus.Pending,
-                "Approved" => ClaimStatus.Approved,
-                "Rejected" => ClaimStatus.Rejected,
-                _ => ClaimStatus.Pending
-            };
         }
     }
 }

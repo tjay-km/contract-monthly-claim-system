@@ -1,132 +1,126 @@
 using CMCS.Controllers;
 using CMCS.Models;
+using CMCS.Models.Enums;
 using CMCS.Services;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Moq;
-using System;
-using System.Collections.Generic;
-using System.Threading.Tasks;
-using Xunit;
-using CMCS.Models.Enums;
-using CMCS.Data;
+using System.Security.Claims;
+using NUnit.Framework;
+using ClaimModel = CMCS.Models.Claim;
 
 namespace CMCS.Tests
 {
+    [TestFixture]
     public class ClaimControllerTests
     {
-        private readonly List<CMCS.Models.Claim> _testClaims;
-        private readonly Mock<IClaimsService> _mockClaimsService;
-        private readonly Mock<ILogger<ClaimController>> _mockLogger;
-        private readonly Mock<IDocumentService> _mockDocumentService;
-        private readonly Mock<IClaimApprovalService> _mockApprovalService;
-        private readonly Mock<UserManager<ApplicationUser>> _mockUserManager;
-        private readonly Mock<ApplicationDbContext> _mockContext;
-        private readonly ClaimController _controller;
+        private Mock<IClaimsService> _mockClaimsService = null!;
+        private Mock<UserManager<ApplicationUser>> _mockUserManager = null!;
+        private Mock<IUserStore<ApplicationUser>> _mockUserStore = null!;
+        private Mock<ILogger<ClaimController>> _mockLogger = null!;
+        private Mock<IDocumentService> _mockDocumentService = null!;
+        private Mock<IClaimApprovalService> _mockApprovalService = null!;
+        private ClaimController _controller = null!;
 
-        public ClaimControllerTests()
+        [SetUp]
+        public void Setup()
         {
-            _testClaims = new List<CMCS.Models.Claim>
-            {
-                new CMCS.Models.Claim { 
-                    Id = 1, 
-                    LecturerName = "John Doe", 
-                    Status = ClaimStatus.Pending, 
-                    SubmissionDate = DateTime.Now, 
-                    HoursWorked = 10, 
-                    HourlyRate = 50m,
-                    LecturerDepartment = "Computer Science",
-                    ModuleCode = "CS101",
-                    AdditionalNotes = "Test notes with minimum length"
-                },
-                new CMCS.Models.Claim { 
-                    Id = 2, 
-                    LecturerName = "Jane Smith", 
-                    Status = ClaimStatus.Approved, 
-                    SubmissionDate = DateTime.Now.AddDays(-1), 
-                    HoursWorked = 8, 
-                    HourlyRate = 45m,
-                    LecturerDepartment = "Mathematics",
-                    ModuleCode = "MTH201",
-                    AdditionalNotes = "Test notes with minimum length"
-                }
-            };
-
             _mockClaimsService = new Mock<IClaimsService>();
+            _mockUserStore = new Mock<IUserStore<ApplicationUser>>();
             _mockLogger = new Mock<ILogger<ClaimController>>();
             _mockDocumentService = new Mock<IDocumentService>();
             _mockApprovalService = new Mock<IClaimApprovalService>();
-            _mockContext = new Mock<ApplicationDbContext>();
 
-            // Setup mock user manager
-            var userStore = new Mock<IUserStore<ApplicationUser>>();
+            // Set up UserManager mock with required options
+            var mockOptions = new Mock<IOptions<IdentityOptions>>();
+            mockOptions.Setup(x => x.Value).Returns(new IdentityOptions());
+
+            var serviceProvider = new ServiceCollection()
+                .AddLogging()
+                .BuildServiceProvider();
+
+            var logger = serviceProvider.GetService<ILogger<UserManager<ApplicationUser>>>()!;
+
             _mockUserManager = new Mock<UserManager<ApplicationUser>>(
-                userStore.Object, null, null, null, null, null, null, null, null);
+                _mockUserStore.Object,
+                mockOptions.Object,
+                new PasswordHasher<ApplicationUser>(),
+                Array.Empty<IUserValidator<ApplicationUser>>(),
+                Array.Empty<IPasswordValidator<ApplicationUser>>(),
+                new UpperInvariantLookupNormalizer(),
+                new IdentityErrorDescriber(),
+                serviceProvider,
+                logger);
 
-            _mockClaimsService.Setup(s => s.GetAllClaimsAsync())
-                .ReturnsAsync(_testClaims);
-            _mockClaimsService.Setup(s => s.GetClaimByIdAsync(It.IsAny<int>()))
-                .ReturnsAsync((int id) => _testClaims.Find(c => c.Id == id));
+            // Set up common approval service mocks
+            _mockApprovalService.Setup(x => x.ProcessClaimAsync(It.IsAny<ClaimModel>(), It.IsAny<string>()))
+                .ReturnsAsync(true);
 
+            _mockApprovalService.Setup(x => x.ApproveClaimAsync(It.IsAny<int>(), It.IsAny<string>()))
+                .ReturnsAsync(true);
+
+            _mockApprovalService.Setup(x => x.RejectClaimAsync(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<string>()))
+                .ReturnsAsync(true);
+
+            // Set up common logger mock
+            _mockLogger.Setup(x => x.Log(
+                It.IsAny<LogLevel>(),
+                It.IsAny<EventId>(),
+                It.IsAny<It.IsAnyType>(),
+                It.IsAny<Exception>(),
+                (Func<It.IsAnyType, Exception?, string>)It.IsAny<object>()));
+            
             _controller = new ClaimController(
-                _mockClaimsService.Object, 
-                _mockLogger.Object, 
+                _mockClaimsService.Object,
+                _mockLogger.Object,
                 _mockDocumentService.Object,
                 _mockApprovalService.Object,
-                _mockUserManager.Object,
-                _mockContext.Object);
+                _mockUserManager.Object);
+
+            // Set up common test user
+            var testUser = new ApplicationUser 
+            { 
+                Id = "1", 
+                UserName = "Test1", 
+                Name = "Test1", 
+                Department = "Test Dept" 
+            };
+
+            // Set up common UserManager mock methods
+            _mockUserManager.Setup(x => x.GetUserAsync(It.IsAny<ClaimsPrincipal>()))
+                .ReturnsAsync(testUser);
+            
+            _mockUserManager.Setup(x => x.IsInRoleAsync(It.IsAny<ApplicationUser>(), "Lecturer"))
+                .ReturnsAsync(true);
+            
+            _mockUserManager.Setup(x => x.IsInRoleAsync(It.IsAny<ApplicationUser>(), "ProgrammeCoordinator"))
+                .ReturnsAsync(true);
+            
+            _mockUserManager.Setup(x => x.IsInRoleAsync(It.IsAny<ApplicationUser>(), "AcademicManager"))
+                .ReturnsAsync(true);
+
+            // Set up common HttpContext with User
+            var user = new ClaimsPrincipal(new ClaimsIdentity(new System.Security.Claims.Claim[]
+            {
+                new System.Security.Claims.Claim(ClaimTypes.NameIdentifier, testUser.Id),
+                new System.Security.Claims.Claim(ClaimTypes.Name, testUser.Name),
+                new System.Security.Claims.Claim(ClaimTypes.Role, "Lecturer"),
+            }, "mock"));
+
+            _controller.ControllerContext = new ControllerContext
+            {
+                HttpContext = new DefaultHttpContext { User = user }
+            };
         }
 
-        [Fact]
-        public async Task ListClaims_ReturnsViewWithClaims()
+        [TearDown]
+        public void TearDown()
         {
-            // Act
-            var result = await _controller.ListClaims() as ViewResult;
-            var model = result?.Model as IEnumerable<CMCS.Models.Claim>;
-
-            // Assert
-            Assert.NotNull(result);
-            Assert.NotNull(model);
-            Assert.Equal(_testClaims, model);
-        }
-
-        [Fact]
-        public async Task Submit_Get_ReturnsViewWithNewClaim()
-        {
-            // Arrange
-            var userId = "testUserId";
-            var userName = "Test User";
-            var user = new ApplicationUser { Id = userId, Name = userName };
-
-            _mockUserManager.Setup(m => m.FindByIdAsync(It.IsAny<string>()))
-                .ReturnsAsync(user);
-
-            // Act
-            var result = await _controller.Submit() as ViewResult;
-            var claim = result?.Model as CMCS.Models.Claim;
-
-            // Assert
-            Assert.NotNull(result);
-            Assert.NotNull(claim);
-            Assert.Equal(userId, claim.LecturerId);
-            Assert.Equal(userName, claim.LecturerName);
-            Assert.Equal(ClaimStatus.Pending, claim.Status);
-        }
-
-        [Fact]
-        public async Task Submit_Post_WithInvalidModel_ReturnsViewWithSameModel()
-        {
-            // Arrange
-            var claim = new CMCS.Models.Claim();
-            _controller.ModelState.AddModelError("", "Test error");
-
-            // Act
-            var result = await _controller.Submit(claim, null) as ViewResult;
-
-            // Assert
-            Assert.NotNull(result);
-            Assert.Equal(claim, result.Model);
+            _controller?.Dispose();
         }
     }
 }

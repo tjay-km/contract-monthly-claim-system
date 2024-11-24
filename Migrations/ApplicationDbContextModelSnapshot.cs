@@ -32,7 +32,6 @@ namespace CMCS.Migrations
 
                     b.Property<string>("ConcurrencyStamp")
                         .IsConcurrencyToken()
-                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Department")
@@ -40,7 +39,6 @@ namespace CMCS.Migrations
                         .HasColumnType("nvarchar(100)");
 
                     b.Property<string>("Email")
-                        .IsRequired()
                         .HasMaxLength(256)
                         .HasColumnType("nvarchar(256)");
 
@@ -50,11 +48,6 @@ namespace CMCS.Migrations
                     b.Property<string>("FirstName")
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
-
-                    b.Property<bool>("IsActive")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bit")
-                        .HasDefaultValue(true);
 
                     b.Property<string>("LastName")
                         .HasMaxLength(100)
@@ -72,12 +65,10 @@ namespace CMCS.Migrations
                         .HasColumnType("nvarchar(100)");
 
                     b.Property<string>("NormalizedEmail")
-                        .IsRequired()
                         .HasMaxLength(256)
                         .HasColumnType("nvarchar(256)");
 
                     b.Property<string>("NormalizedUserName")
-                        .IsRequired()
                         .HasMaxLength(256)
                         .HasColumnType("nvarchar(256)");
 
@@ -96,24 +87,14 @@ namespace CMCS.Migrations
                         .HasColumnType("nvarchar(50)");
 
                     b.Property<string>("SecurityStamp")
-                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Specialization")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
 
                     b.Property<bool>("TwoFactorEnabled")
                         .HasColumnType("bit");
 
                     b.Property<string>("UserName")
-                        .IsRequired()
                         .HasMaxLength(256)
                         .HasColumnType("nvarchar(256)");
-
-                    b.Property<string>("UserType")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
 
@@ -122,7 +103,8 @@ namespace CMCS.Migrations
 
                     b.HasIndex("NormalizedUserName")
                         .IsUnique()
-                        .HasDatabaseName("UserNameIndex");
+                        .HasDatabaseName("UserNameIndex")
+                        .HasFilter("[NormalizedUserName] IS NOT NULL");
 
                     b.ToTable("AspNetUsers", (string)null);
                 });
@@ -173,11 +155,7 @@ namespace CMCS.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
-                    b.Property<string>("ApplicationUserId")
-                        .HasColumnType("nvarchar(450)");
-
                     b.Property<string>("ApprovalComments")
-                        .IsRequired()
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
@@ -186,9 +164,6 @@ namespace CMCS.Migrations
 
                     b.Property<DateTime?>("DateReviewed")
                         .HasColumnType("datetime2");
-
-                    b.Property<int?>("DepartmentId")
-                        .HasColumnType("int");
 
                     b.Property<decimal>("HourlyRate")
                         .HasPrecision(18, 2)
@@ -218,16 +193,11 @@ namespace CMCS.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
 
-                    b.Property<int?>("ModuleId")
-                        .HasColumnType("int");
-
                     b.Property<string>("RejectionReason")
-                        .IsRequired()
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
                     b.Property<string>("ReviewedBy")
-                        .IsRequired()
                         .HasMaxLength(256)
                         .HasColumnType("nvarchar(256)");
 
@@ -243,7 +213,6 @@ namespace CMCS.Migrations
                         .HasColumnType("datetime2");
 
                     b.Property<string>("SupportingDocumentPath")
-                        .IsRequired()
                         .HasMaxLength(1000)
                         .HasColumnType("nvarchar(1000)");
 
@@ -256,13 +225,7 @@ namespace CMCS.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ApplicationUserId");
-
                     b.HasIndex("ClaimReportId");
-
-                    b.HasIndex("DepartmentId");
-
-                    b.HasIndex("ModuleId");
 
                     b.HasIndex("ReviewerId");
 
@@ -284,7 +247,7 @@ namespace CMCS.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 
-                    b.Property<int?>("ClaimId")
+                    b.Property<int>("ClaimId")
                         .HasColumnType("int");
 
                     b.Property<string>("Details")
@@ -346,9 +309,6 @@ namespace CMCS.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<string>("ApplicationUserId")
-                        .HasColumnType("nvarchar(450)");
-
                     b.Property<DateTime>("EndDate")
                         .HasColumnType("datetime2");
 
@@ -387,159 +347,7 @@ namespace CMCS.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ApplicationUserId");
-
                     b.ToTable("ClaimReports", (string)null);
-                });
-
-            modelBuilder.Entity("CMCS.Models.Department", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("Code")
-                        .IsRequired()
-                        .HasMaxLength(10)
-                        .HasColumnType("nvarchar(10)");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Code")
-                        .IsUnique();
-
-                    b.ToTable("Departments");
-
-                    b.HasData(
-                        new
-                        {
-                            Id = 1,
-                            Code = "IT",
-                            IsActive = true,
-                            Name = "Information Technology"
-                        },
-                        new
-                        {
-                            Id = 2,
-                            Code = "CS",
-                            IsActive = true,
-                            Name = "Computer Science"
-                        },
-                        new
-                        {
-                            Id = 3,
-                            Code = "SE",
-                            IsActive = true,
-                            Name = "Software Engineering"
-                        });
-                });
-
-            modelBuilder.Entity("CMCS.Models.Module", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("Code")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)");
-
-                    b.Property<int>("Credits")
-                        .HasColumnType("int");
-
-                    b.Property<int>("DepartmentId")
-                        .HasColumnType("int");
-
-                    b.Property<int?>("DepartmentId1")
-                        .HasColumnType("int");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Code")
-                        .IsUnique();
-
-                    b.HasIndex("DepartmentId");
-
-                    b.HasIndex("DepartmentId1");
-
-                    b.ToTable("Modules");
-
-                    b.HasData(
-                        new
-                        {
-                            Id = 1,
-                            Code = "IT101",
-                            Credits = 0,
-                            DepartmentId = 1,
-                            IsActive = true,
-                            Name = "Introduction to Programming"
-                        },
-                        new
-                        {
-                            Id = 2,
-                            Code = "IT102",
-                            Credits = 0,
-                            DepartmentId = 1,
-                            IsActive = true,
-                            Name = "Database Systems"
-                        },
-                        new
-                        {
-                            Id = 3,
-                            Code = "CS201",
-                            Credits = 0,
-                            DepartmentId = 2,
-                            IsActive = true,
-                            Name = "Data Structures"
-                        },
-                        new
-                        {
-                            Id = 4,
-                            Code = "CS202",
-                            Credits = 0,
-                            DepartmentId = 2,
-                            IsActive = true,
-                            Name = "Algorithms"
-                        },
-                        new
-                        {
-                            Id = 5,
-                            Code = "SE301",
-                            Credits = 0,
-                            DepartmentId = 3,
-                            IsActive = true,
-                            Name = "Software Design"
-                        },
-                        new
-                        {
-                            Id = 6,
-                            Code = "SE302",
-                            Credits = 0,
-                            DepartmentId = 3,
-                            IsActive = true,
-                            Name = "Software Testing"
-                        });
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole", b =>
@@ -677,24 +485,10 @@ namespace CMCS.Migrations
 
             modelBuilder.Entity("CMCS.Models.Claim", b =>
                 {
-                    b.HasOne("CMCS.Models.ApplicationUser", null)
-                        .WithMany("Claims")
-                        .HasForeignKey("ApplicationUserId");
-
                     b.HasOne("CMCS.Models.ClaimReport", null)
                         .WithMany("Claims")
                         .HasForeignKey("ClaimReportId")
                         .OnDelete(DeleteBehavior.NoAction);
-
-                    b.HasOne("CMCS.Models.Department", "Department")
-                        .WithMany()
-                        .HasForeignKey("DepartmentId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.HasOne("CMCS.Models.Module", "Module")
-                        .WithMany()
-                        .HasForeignKey("ModuleId")
-                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("CMCS.Models.ApplicationUser", "Reviewer")
                         .WithMany()
@@ -706,10 +500,6 @@ namespace CMCS.Migrations
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.NoAction);
 
-                    b.Navigation("Department");
-
-                    b.Navigation("Module");
-
                     b.Navigation("Reviewer");
 
                     b.Navigation("User");
@@ -720,7 +510,8 @@ namespace CMCS.Migrations
                     b.HasOne("CMCS.Models.Claim", "Claim")
                         .WithMany()
                         .HasForeignKey("ClaimId")
-                        .OnDelete(DeleteBehavior.NoAction);
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
 
                     b.Navigation("Claim");
                 });
@@ -734,29 +525,6 @@ namespace CMCS.Migrations
                         .IsRequired();
 
                     b.Navigation("Claim");
-                });
-
-            modelBuilder.Entity("CMCS.Models.ClaimReport", b =>
-                {
-                    b.HasOne("CMCS.Models.ApplicationUser", null)
-                        .WithMany("ReviewedClaims")
-                        .HasForeignKey("ApplicationUserId")
-                        .OnDelete(DeleteBehavior.NoAction);
-                });
-
-            modelBuilder.Entity("CMCS.Models.Module", b =>
-                {
-                    b.HasOne("CMCS.Models.Department", "Department")
-                        .WithMany()
-                        .HasForeignKey("DepartmentId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("CMCS.Models.Department", null)
-                        .WithMany("Modules")
-                        .HasForeignKey("DepartmentId1");
-
-                    b.Navigation("Department");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>
@@ -810,13 +578,6 @@ namespace CMCS.Migrations
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("CMCS.Models.ApplicationUser", b =>
-                {
-                    b.Navigation("Claims");
-
-                    b.Navigation("ReviewedClaims");
-                });
-
             modelBuilder.Entity("CMCS.Models.Claim", b =>
                 {
                     b.Navigation("Documents");
@@ -825,11 +586,6 @@ namespace CMCS.Migrations
             modelBuilder.Entity("CMCS.Models.ClaimReport", b =>
                 {
                     b.Navigation("Claims");
-                });
-
-            modelBuilder.Entity("CMCS.Models.Department", b =>
-                {
-                    b.Navigation("Modules");
                 });
 #pragma warning restore 612, 618
         }

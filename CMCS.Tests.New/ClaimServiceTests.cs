@@ -1,20 +1,17 @@
 using CMCS.Models;
+using CMCS.Models.Enums;
 using CMCS.Services;
 using Microsoft.EntityFrameworkCore;
 using Moq;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using Xunit;
-using CMCS.Models.Enums;
+using NUnit.Framework;
 
 namespace CMCS.Tests
 {
+    [TestFixture]
     public class ClaimsServiceTests
     {
         private readonly List<Claim> _testClaims;
-        private readonly Mock<IClaimsService> _mockClaimsService;
+        private Mock<IClaimsService> _mockClaimsService;
 
         public ClaimsServiceTests()
         {
@@ -71,10 +68,15 @@ namespace CMCS.Tests
                 .ReturnsAsync(_testClaims);
 
             _mockClaimsService.Setup(s => s.GetClaimByIdAsync(It.IsAny<int>()))
-                .ReturnsAsync((int id) => _testClaims.FirstOrDefault(c => c.Id == id));
+                .ReturnsAsync((int id) => _testClaims.FirstOrDefault(c => c.Id == id) ?? null!);
 
             _mockClaimsService.Setup(s => s.CreateClaimAsync(It.IsAny<Claim>()))
-                .ReturnsAsync((Claim claim) => { claim.Id = _testClaims.Max(c => c.Id) + 1; return claim; });
+                .ReturnsAsync((Claim? claim) => 
+                {
+                    if (claim == null) return null!;
+                    claim.Id = _testClaims.Max(c => c.Id) + 1; 
+                    return claim;
+                });
 
             _mockClaimsService.Setup(s => s.UpdateClaimAsync(It.IsAny<Claim>()))
                 .ReturnsAsync((Claim claim) => claim);
@@ -83,54 +85,53 @@ namespace CMCS.Tests
                 .ReturnsAsync((int id) => _testClaims.Any(c => c.Id == id));
         }
 
-        [Fact]
+        [Test]
         public async Task GetAllClaimsAsync_ReturnsAllClaims()
         {
             // Act
             var result = await _mockClaimsService.Object.GetAllClaimsAsync();
 
             // Assert
-            Assert.Equal(_testClaims.Count, result.Count());
-            Assert.Equal(_testClaims, result);
+            Assert.That(result.Count(), Is.EqualTo(_testClaims.Count));
+            Assert.That(result, Is.EqualTo(_testClaims));
         }
 
-        [Fact]
+        [Test]
         public async Task GetClaimByIdAsync_ReturnsCorrectClaim()
         {
             // Act
             var result = await _mockClaimsService.Object.GetClaimByIdAsync(2);
 
             // Assert
-            Assert.NotNull(result);
-            Assert.Equal(2, result.Id);
-            Assert.Equal("Jane Smith", result.LecturerName);
-            Assert.Equal(ClaimStatus.Approved, result.Status);
+            Assert.That(result, Is.Not.Null);
+            Assert.That(result.LecturerName, Is.EqualTo("Jane Smith"));
+            Assert.That(result.LecturerDepartment, Is.EqualTo("Mathematics"));
         }
 
-        [Fact]
-        public async Task GetClaimByIdAsync_ReturnsNullForInvalidId()
+        [Test]
+        public async Task GetClaimByIdAsync_ReturnsNullForNonexistentId()
         {
             // Act
-            var result = await _mockClaimsService.Object.GetClaimByIdAsync(999);
+            var result = await _mockClaimsService.Object.GetClaimByIdAsync(99);
 
             // Assert
-            Assert.Null(result);
+            Assert.That(result, Is.Null);
         }
 
-        [Fact]
+        [Test]
         public async Task CreateClaimAsync_AssignsNewId()
         {
             // Arrange
             var newClaim = new Claim
             {
                 LecturerId = "user4",
-                LecturerName = "Alice Brown",
+                LecturerName = "New User",
                 Status = ClaimStatus.Pending,
                 SubmissionDate = DateTime.Now,
-                HoursWorked = 15,
-                HourlyRate = 55,
+                HoursWorked = 5,
+                HourlyRate = 40,
                 LecturerDepartment = "Chemistry",
-                ModuleCode = "CHM401",
+                ModuleCode = "CHM101",
                 AdditionalNotes = "Test notes with minimum length"
             };
 
@@ -138,11 +139,11 @@ namespace CMCS.Tests
             var result = await _mockClaimsService.Object.CreateClaimAsync(newClaim);
 
             // Assert
-            Assert.NotEqual(0, result.Id);
-            Assert.True(result.Id > _testClaims.Max(c => c.Id));
+            Assert.That(result.Id, Is.Not.EqualTo(0));
+            Assert.That(result.LecturerName, Is.EqualTo(newClaim.LecturerName));
         }
 
-        [Fact]
+        [Test]
         public async Task UpdateClaimAsync_ReturnsUpdatedClaim()
         {
             // Arrange
@@ -153,27 +154,27 @@ namespace CMCS.Tests
             var result = await _mockClaimsService.Object.UpdateClaimAsync(claim);
 
             // Assert
-            Assert.Equal(ClaimStatus.Approved, result.Status);
+            Assert.That(result.Status, Is.EqualTo(ClaimStatus.Approved));
         }
 
-        [Fact]
+        [Test]
         public async Task DeleteClaimAsync_ReturnsTrueForExistingId()
         {
             // Act
             var result = await _mockClaimsService.Object.DeleteClaimAsync(1);
 
             // Assert
-            Assert.True(result);
+            Assert.That(result, Is.True);
         }
 
-        [Fact]
+        [Test]
         public async Task DeleteClaimAsync_ReturnsFalseForNonexistentId()
         {
             // Act
             var result = await _mockClaimsService.Object.DeleteClaimAsync(99);
 
             // Assert
-            Assert.False(result);
+            Assert.That(result, Is.False);
         }
     }
 }

@@ -21,6 +21,7 @@ namespace CMCS.Services
             return await _context.Claims
                 .Include(c => c.User)
                 .Include(c => c.Reviewer)
+                .AsNoTracking()
                 .ToListAsync();
         }
 
@@ -34,6 +35,10 @@ namespace CMCS.Services
 
         public async Task<Claim> CreateClaimAsync(Claim claim)
         {
+            claim.ReviewedBy ??= "Pending Review";
+            claim.ApprovalComments ??= "Pending review";
+            claim.RejectionReason ??= "N/A";
+
             _context.Claims.Add(claim);
             await _context.SaveChangesAsync();
             return claim;
@@ -41,6 +46,10 @@ namespace CMCS.Services
 
         public async Task<Claim> UpdateClaimAsync(Claim claim)
         {
+            claim.ReviewedBy ??= "Pending Review";
+            claim.ApprovalComments ??= "Pending review";
+            claim.RejectionReason ??= "N/A";
+
             _context.Entry(claim).State = EntityState.Modified;
             await _context.SaveChangesAsync();
             return claim;
@@ -50,9 +59,7 @@ namespace CMCS.Services
         {
             var claim = await _context.Claims.FindAsync(id);
             if (claim == null)
-            {
                 return false;
-            }
 
             _context.Claims.Remove(claim);
             await _context.SaveChangesAsync();

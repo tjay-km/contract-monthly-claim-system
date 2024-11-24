@@ -4,6 +4,14 @@ namespace CMCS.Models
 {
     public class ClaimAudit
     {
+        public ClaimAudit()
+        {
+            Action = string.Empty;
+            PerformedBy = string.Empty;
+            Details = string.Empty;
+            Timestamp = DateTime.Now;
+        }
+
         public int Id { get; set; }
         public string Action { get; set; }
         public string PerformedBy { get; set; }
