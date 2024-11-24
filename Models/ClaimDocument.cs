@@ -12,14 +12,19 @@ namespace CMCS.Models
         
         [Required]
         [MaxLength(255)]
-        public string FileName { get; set; }     // The name of the uploaded file
+        public string FileName { get; set; } = string.Empty;     // The name of the uploaded file
         
         [Required]
         [MaxLength(1000)]
-        public string FilePath { get; set; }     // The path where the file is stored
+        public string FilePath { get; set; } = string.Empty;     // The path where the file is stored
         
         public DateTime DateUploaded { get; set; }  // The date the file was uploaded
 
-        public virtual Claim Claim { get; set; }    // Navigation property to the associated claim
+        public virtual Claim? Claim { get; set; }    // Navigation property to the associated claim
+
+        public ClaimDocument()
+        {
+            DateUploaded = DateTime.Now;
+        }
     }
 }

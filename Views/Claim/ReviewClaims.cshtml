@@ -47,9 +47,13 @@
                                     <td class="px-4 py-2">@claim.HourlyRate</td>
                                     <td class="px-4 py-2">@((decimal)claim.HoursWorked * claim.HourlyRate)</td>
                                     <td class="px-4 py-2">
-                                        @if (claim.Status == ClaimStatus.Approved || claim.Status == ClaimStatus.Rejected)
+                                        @if (claim.Status == ClaimStatus.Approved)
                                         {
                                             <span class="badge badge-success">@claim.Status</span>
+                                        }
+                                        else if (claim.Status == ClaimStatus.Rejected)
+                                        {
+                                            <span class="badge badge-danger">@claim.Status</span>
                                         }
                                         else
                                         {

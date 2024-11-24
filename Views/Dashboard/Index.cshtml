@@ -47,9 +47,13 @@
                                 <td class="border px-4 py-2">@claim.HourlyRate.ToString("C")</td>
                                 <td class="border px-4 py-2">@((claim.HoursWorked * claim.HourlyRate).ToString("C"))</td>
                                 <td class="border px-4 py-2">
-                                    @if (claim.Status == ClaimStatus.Approved || claim.Status == ClaimStatus.Rejected)
+                                    @if (claim.Status == ClaimStatus.Approved)
                                     {
                                         <span class="badge badge-success">@claim.Status</span>
+                                    }
+                                    else if (claim.Status == ClaimStatus.Rejected)
+                                    {
+                                        <span class="badge badge-danger">@claim.Status</span>
                                     }
                                     else
                                     {
@@ -82,9 +86,13 @@
                         <p><strong>Total:</strong> @((claim.HoursWorked * claim.HourlyRate).ToString("C"))</p>
                         <p>
                             <strong>Status:</strong>
-                            @if (claim.Status == ClaimStatus.Approved || claim.Status == ClaimStatus.Rejected)
+                            @if (claim.Status == ClaimStatus.Approved)
                             {
                                 <span class="badge badge-success">@claim.Status</span>
+                            }
+                            else if (claim.Status == ClaimStatus.Rejected)
+                            {
+                                <span class="badge badge-danger">@claim.Status</span>
                             }
                             else
                             {
@@ -228,9 +236,13 @@
                                     }
                                 </td>
                                 <td class="border px-4 py-2">
-                                    @if (claim.Status == ClaimStatus.Approved || claim.Status == ClaimStatus.Rejected)
+                                    @if (claim.Status == ClaimStatus.Approved)
                                     {
                                         <span class="badge badge-success">@claim.Status</span>
+                                    }
+                                    else if (claim.Status == ClaimStatus.Rejected)
+                                    {
+                                        <span class="badge badge-danger">@claim.Status</span>
                                     }
                                     else
                                     {
@@ -269,9 +281,13 @@
                         }
                         <p>
                             <strong>Status:</strong>
-                            @if (claim.Status == ClaimStatus.Approved || claim.Status == ClaimStatus.Rejected)
+                            @if (claim.Status == ClaimStatus.Approved)
                             {
                                 <span class="badge badge-success">@claim.Status</span>
+                            }
+                            else if (claim.Status == ClaimStatus.Rejected)
+                            {
+                                <span class="badge badge-danger">@claim.Status</span>
                             }
                             else
                             {

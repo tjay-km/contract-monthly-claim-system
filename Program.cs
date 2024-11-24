@@ -130,6 +130,9 @@ using (var scope = app.Services.CreateScope())
         
         // Initialize roles and claims
         await SeedData.InitializeRolesAndClaims(roleManager, userManager);
+
+        // Initialize departments and modules
+        await SeedData.InitializeDepartmentsAndModules(context);
     }
     catch (Exception ex)
     {

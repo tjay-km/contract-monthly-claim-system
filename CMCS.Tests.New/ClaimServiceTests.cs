@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Xunit;
+using CMCS.Models.Enums;
 
 namespace CMCS.Tests
 {
@@ -24,7 +25,7 @@ namespace CMCS.Tests
                     Id = 1, 
                     LecturerId = "user1",
                     LecturerName = "John Doe", 
-                    Status = "Pending", 
+                    Status = ClaimStatus.Pending, 
                     SubmissionDate = DateTime.Now, 
                     HoursWorked = 10, 
                     HourlyRate = 50,
@@ -37,7 +38,7 @@ namespace CMCS.Tests
                     Id = 2, 
                     LecturerId = "user2",
                     LecturerName = "Jane Smith", 
-                    Status = "Approved", 
+                    Status = ClaimStatus.Approved, 
                     SubmissionDate = DateTime.Now.AddDays(-1), 
                     HoursWorked = 8, 
                     HourlyRate = 60,
@@ -50,7 +51,7 @@ namespace CMCS.Tests
                     Id = 3, 
                     LecturerId = "user3",
                     LecturerName = "Bob Johnson", 
-                    Status = "Rejected", 
+                    Status = ClaimStatus.Rejected, 
                     SubmissionDate = DateTime.Now.AddDays(-2), 
                     HoursWorked = 12, 
                     HourlyRate = 45,
@@ -101,15 +102,16 @@ namespace CMCS.Tests
 
             // Assert
             Assert.NotNull(result);
+            Assert.Equal(2, result.Id);
             Assert.Equal("Jane Smith", result.LecturerName);
-            Assert.Equal("Mathematics", result.LecturerDepartment);
+            Assert.Equal(ClaimStatus.Approved, result.Status);
         }
 
         [Fact]
-        public async Task GetClaimByIdAsync_ReturnsNullForNonexistentId()
+        public async Task GetClaimByIdAsync_ReturnsNullForInvalidId()
         {
             // Act
-            var result = await _mockClaimsService.Object.GetClaimByIdAsync(99);
+            var result = await _mockClaimsService.Object.GetClaimByIdAsync(999);
 
             // Assert
             Assert.Null(result);
@@ -122,13 +124,13 @@ namespace CMCS.Tests
             var newClaim = new Claim
             {
                 LecturerId = "user4",
-                LecturerName = "New User",
-                Status = "Pending",
+                LecturerName = "Alice Brown",
+                Status = ClaimStatus.Pending,
                 SubmissionDate = DateTime.Now,
-                HoursWorked = 5,
-                HourlyRate = 40,
+                HoursWorked = 15,
+                HourlyRate = 55,
                 LecturerDepartment = "Chemistry",
-                ModuleCode = "CHM101",
+                ModuleCode = "CHM401",
                 AdditionalNotes = "Test notes with minimum length"
             };
 
@@ -137,7 +139,7 @@ namespace CMCS.Tests
 
             // Assert
             Assert.NotEqual(0, result.Id);
-            Assert.Equal(newClaim.LecturerName, result.LecturerName);
+            Assert.True(result.Id > _testClaims.Max(c => c.Id));
         }
 
         [Fact]
@@ -145,13 +147,13 @@ namespace CMCS.Tests
         {
             // Arrange
             var claim = _testClaims.First();
-            claim.Status = "Approved";
+            claim.Status = ClaimStatus.Approved;
 
             // Act
             var result = await _mockClaimsService.Object.UpdateClaimAsync(claim);
 
             // Assert
-            Assert.Equal("Approved", result.Status);
+            Assert.Equal(ClaimStatus.Approved, result.Status);
         }
 
         [Fact]

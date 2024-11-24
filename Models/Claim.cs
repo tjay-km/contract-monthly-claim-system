@@ -9,6 +9,22 @@ namespace CMCS.Models
 {
     public class Claim
     {
+        public Claim()
+        {
+            LecturerId = string.Empty;
+            LecturerName = string.Empty;
+            LecturerDepartment = string.Empty;
+            AdditionalNotes = string.Empty;
+            ModuleCode = string.Empty;
+            RejectionReason = string.Empty;
+            SupportingDocumentPath = string.Empty;
+            ReviewedBy = string.Empty;
+            ApprovalComments = string.Empty;
+            Documents = new List<ClaimDocument>();
+            Status = ClaimStatus.Pending;
+            SubmissionDate = DateTime.Now;
+        }
+
         public int Id { get; set; }
 
         [Required]
@@ -51,14 +67,15 @@ namespace CMCS.Models
 
         [Required(ErrorMessage = "Additional notes are required")]
         [Display(Name = "Additional Notes")]
-        [MaxLength(500)]
+        [MinLength(10, ErrorMessage = "Additional notes must be at least 10 characters long")]
+        [MaxLength(500, ErrorMessage = "Additional notes cannot exceed 500 characters")]
         public string AdditionalNotes { get; set; }
 
         [Required(ErrorMessage = "Status is required")]
-        public ClaimStatus Status { get; set; } = ClaimStatus.Pending;
+        public ClaimStatus Status { get; set; }
 
         [Display(Name = "Rejection Reason")]
-        public string? RejectionReason { get; set; }
+        public string RejectionReason { get; set; }
 
         [Required(ErrorMessage = "Module code is required")]
         [Display(Name = "Module Code")]
@@ -70,7 +87,7 @@ namespace CMCS.Models
         public IFormFile? SupportingDocument { get; set; }
 
         [Display(Name = "Supporting Document Path")]
-        public string? SupportingDocumentPath { get; set; }
+        public string SupportingDocumentPath { get; set; }
 
         public string? UserId { get; set; }
 
@@ -78,21 +95,25 @@ namespace CMCS.Models
 
         [Display(Name = "Reviewed By")]
         [StringLength(256)]
-        public string? ReviewedBy { get; set; }
+        public string ReviewedBy { get; set; }
 
         [Display(Name = "Approval Comments")]
         [StringLength(500)]
-        public string? ApprovalComments { get; set; }
+        public string ApprovalComments { get; set; }
 
+        [ForeignKey("UserId")]
         public virtual ApplicationUser? User { get; set; }
+        [ForeignKey("ReviewerId")]
         public virtual ApplicationUser? Reviewer { get; set; }
 
-        public virtual ICollection<ClaimDocument> Documents { get; set; }
+        public int? DepartmentId { get; set; }
+        [ForeignKey("DepartmentId")]
+        public virtual Department? Department { get; set; }
 
-        public Claim()
-        {
-            Documents = new List<ClaimDocument>();
-            SubmissionDate = DateTime.Now;
-        }
+        public int? ModuleId { get; set; }
+        [ForeignKey("ModuleId")]
+        public virtual Module? Module { get; set; }
+
+        public virtual ICollection<ClaimDocument> Documents { get; set; }
     }
 }

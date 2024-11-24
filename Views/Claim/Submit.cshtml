@@ -1,125 +1,133 @@
 @model CMCS.Models.Claim
-@using System.Security.Claims
-
 @{
     ViewData["Title"] = "Submit Claim";
 }
 
-<div class="container mt-4">
+<div class="container mt-5">
     <div class="row justify-content-center">
         <div class="col-md-8">
-            <div class="card shadow">
-                <div class="card-header bg-primary text-white">
-                    <h3 class="card-title mb-0">Submit New Claim</h3>
-                </div>
+            <div class="card">
                 <div class="card-body">
-                    @if (TempData["ErrorMessage"] != null)
-                    {
-                        <div class="alert alert-danger">
-                            @TempData["ErrorMessage"]
-                        </div>
-                    }
+                    <h2 class="text-center mb-4">Submit New Claim</h2>
                     <form asp-action="Submit" method="post" enctype="multipart/form-data" id="claimForm" class="needs-validation" novalidate>
                         <div asp-validation-summary="ModelOnly" class="text-danger"></div>
 
-                        <input type="hidden" asp-for="LecturerId" />
-
-                        <div class="form-group mb-3">
-                            <label asp-for="LecturerName" class="control-label"></label>
-                            <input asp-for="LecturerName" class="form-control" readonly />
-                            <span asp-validation-for="LecturerName" class="text-danger"></span>
-                        </div>
-
                         <div class="row">
-                            <div class="col-md-6">
+                            <div class="col-md-8">
                                 <div class="form-group mb-3">
-                                    <label asp-for="HoursWorked" class="control-label"></label>
-                                    <input asp-for="HoursWorked" class="form-control" type="number" step="0.5" min="0.5" max="195" id="hoursWorked" />
+                                    <label asp-for="DepartmentId" class="form-label">Department</label>
+                                    <select asp-for="DepartmentId" 
+                                            asp-items="@(new SelectList(ViewBag.Departments, "Id", "Name"))"
+                                            class="form-control"
+                                            required>
+                                        <option value="">Select Department</option>
+                                    </select>
+                                    <span asp-validation-for="DepartmentId" class="text-danger"></span>
+                                    <div class="valid-feedback">Looks good!</div>
+                                    <div class="invalid-feedback">Please select a department.</div>
+                                </div>
+
+                                <div class="form-group mb-3">
+                                    <label asp-for="ModuleId" class="form-label">Module</label>
+                                    <select asp-for="ModuleId" 
+                                            class="form-control"
+                                            required>
+                                        <option value="">Select Module</option>
+                                    </select>
+                                    <span asp-validation-for="ModuleId" class="text-danger"></span>
+                                    <div class="valid-feedback">Looks good!</div>
+                                    <div class="invalid-feedback">Please select a module.</div>
+                                </div>
+
+                                <div class="form-group mb-3">
+                                    <label asp-for="HoursWorked" class="form-label">Hours Worked</label>
+                                    <input asp-for="HoursWorked" type="number" min="0.5" max="195" step="0.5" 
+                                           class="form-control" id="hoursWorked" required />
                                     <span asp-validation-for="HoursWorked" class="text-danger"></span>
+                                    <div class="valid-feedback">Looks good!</div>
+                                    <div class="invalid-feedback">Hours must be between 0.5 and 195.</div>
                                 </div>
-                            </div>
-                            <div class="col-md-6">
+
                                 <div class="form-group mb-3">
-                                    <label asp-for="HourlyRate" class="control-label"></label>
-                                    <input asp-for="HourlyRate" class="form-control" type="number" step="0.01" min="1" max="20000" id="hourlyRate" />
+                                    <label asp-for="HourlyRate" class="form-label">Hourly Rate (R)</label>
+                                    <input asp-for="HourlyRate" type="number" min="1" max="20000" step="0.01" 
+                                           class="form-control" id="hourlyRate" required />
                                     <span asp-validation-for="HourlyRate" class="text-danger"></span>
+                                    <div class="valid-feedback">Looks good!</div>
+                                    <div class="invalid-feedback">Rate must be between R1 and R20,000.</div>
+                                </div>
+
+                                <div class="form-group mb-3">
+                                    <label class="form-label">Total Amount (R)</label>
+                                    <input type="text" id="totalAmountDisplay" class="form-control" readonly />
+                                    <input type="hidden" id="totalAmountValue" name="TotalAmount" />
+                                    <div class="valid-feedback">Total amount calculated.</div>
+                                    <div class="invalid-feedback">Please enter valid hours and rate.</div>
+                                </div>
+
+                                <div class="form-group mb-3">
+                                    <label asp-for="AdditionalNotes" class="form-label">Additional Notes</label>
+                                    <textarea asp-for="AdditionalNotes" rows="3" class="form-control" 
+                                              minlength="10" maxlength="500" required></textarea>
+                                    <span asp-validation-for="AdditionalNotes" class="text-danger"></span>
+                                    <div class="valid-feedback">Looks good!</div>
+                                    <div class="invalid-feedback">Notes must be between 10 and 500 characters.</div>
+                                </div>
+
+                                <div class="form-group mb-3">
+                                    <label for="supportingDocument" class="form-label">Supporting Document</label>
+                                    <input type="file" name="supportingDocument" id="supportingDocument" 
+                                           accept=".pdf,.doc,.docx" class="form-control" required />
+                                    <div class="valid-feedback">File selected.</div>
+                                    <div class="invalid-feedback">Please select a valid document (PDF, DOC, or DOCX, max 5MB).</div>
+                                </div>
+
+                                <div class="d-flex justify-content-between gap-3">
+                                    <a asp-action="Index" asp-controller="Dashboard" 
+                                       class="btn btn-secondary w-50">
+                                        Cancel
+                                    </a>
+                                    <button type="submit" class="btn btn-primary w-50">
+                                        Submit Claim
+                                    </button>
                                 </div>
                             </div>
-                        </div>
 
-                        <div class="form-group mb-3">
-                            <label asp-for="TotalAmount" class="control-label"></label>
-                            <div class="input-group">
-                                <span class="input-group-text">R</span>
-                                <input type="text" class="form-control" readonly id="totalAmountDisplay" />
-                                <input type="number" asp-for="TotalAmount" id="totalAmount" class="d-none" min="0.01" max="3900000" step="0.01" required />
+                            <div class="col-md-4">
+                                <div class="card">
+                                    <div class="card-body">
+                                        <h5 class="card-title mb-3">Claim Guidelines</h5>
+                                        <ul class="list-unstyled">
+                                            <li class="mb-2">
+                                                <i class="fas fa-info-circle text-primary me-2"></i>
+                                                Hours worked must be between 0.5 and 195 hours
+                                            </li>
+                                            <li class="mb-2">
+                                                <i class="fas fa-info-circle text-primary me-2"></i>
+                                                Hourly rate must be between R1 and R20,000
+                                            </li>
+                                            <li class="mb-2">
+                                                <i class="fas fa-info-circle text-primary me-2"></i>
+                                                Additional notes must be between 10 and 500 characters
+                                            </li>
+                                            <li class="mb-2">
+                                                <i class="fas fa-info-circle text-primary me-2"></i>
+                                                Supporting documents must be in PDF, DOC, or DOCX format and under 5MB
+                                            </li>
+                                            <li class="mb-2">
+                                                <i class="fas fa-info-circle text-primary me-2"></i>
+                                                Claims under R5,000 are auto-approved
+                                            </li>
+                                            <li class="mb-2">
+                                                <i class="fas fa-info-circle text-primary me-2"></i>
+                                                Total claim amount cannot exceed R3,900,000
+                                            </li>
+                                        </ul>
+                                    </div>
+                                </div>
                             </div>
-                            <span asp-validation-for="TotalAmount" class="text-danger"></span>
-                            <small class="text-muted">Amount must be between R0.01 and R3,900,000</small>
-                        </div>
-
-                        <div class="form-group mb-3">
-                            <label asp-for="LecturerDepartment" class="control-label"></label>
-                            <input asp-for="LecturerDepartment" class="form-control" required />
-                            <span asp-validation-for="LecturerDepartment" class="text-danger"></span>
-                        </div>
-
-                        <div class="form-group mb-3">
-                            <label asp-for="ModuleCode" class="control-label"></label>
-                            <input asp-for="ModuleCode" class="form-control" required />
-                            <span asp-validation-for="ModuleCode" class="text-danger"></span>
-                        </div>
-
-                        <div class="form-group mb-3">
-                            <label asp-for="AdditionalNotes" class="control-label"></label>
-                            <textarea asp-for="AdditionalNotes" class="form-control" rows="4" minlength="10" maxlength="500" required></textarea>
-                            <span asp-validation-for="AdditionalNotes" class="text-danger"></span>
-                            <small class="text-muted">Please provide detailed information about the work performed (10-500 characters)</small>
-                            <div class="invalid-feedback">
-                                Additional notes must be between 10 and 500 characters.
-                            </div>
-                        </div>
-
-                        <div class="form-group mb-3">
-                            <label asp-for="SupportingDocument" class="control-label"></label>
-                            <input type="file" name="supportingDocument" class="form-control" accept=".pdf,.doc,.docx" required />
-                            <span asp-validation-for="SupportingDocument" class="text-danger"></span>
-                            <small class="text-muted">Accepted formats: PDF, DOC, DOCX (max 5MB)</small>
-                        </div>
-
-                        <div class="form-group text-center">
-                            <button type="submit" class="btn btn-primary">Submit Claim</button>
-                            <a asp-action="Dashboard" class="btn btn-secondary">Cancel</a>
                         </div>
                     </form>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-md-4">
-            <div class="card shadow">
-                <div class="card-header bg-info text-white">
-                    <h5 class="mb-0">Claim Guidelines</h5>
-                </div>
-                <div class="card-body">
-                    <ul class="list-group list-group-flush">
-                        <li class="list-group-item">
-                            <i class="bi bi-check-circle-fill text-success me-2"></i>
-                            Hours worked must be between 0.5 and 195
-                        </li>
-                        <li class="list-group-item">
-                            <i class="bi bi-check-circle-fill text-success me-2"></i>
-                            Hourly rate must be between R1 and R20,000
-                        </li>
-                        <li class="list-group-item">
-                            <i class="bi bi-check-circle-fill text-success me-2"></i>
-                            Supporting documents must be PDF, DOC, or DOCX
-                        </li>
-                        <li class="list-group-item">
-                            <i class="bi bi-check-circle-fill text-success me-2"></i>
-                            Maximum file size: 5MB
-                        </li>
-                    </ul>
                 </div>
             </div>
         </div>
@@ -127,98 +135,55 @@
 </div>
 
 @section Scripts {
-    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
     <script>
-        function calculateTotal() {
-            var hours = parseFloat(document.getElementById('hoursWorked').value) || 0;
-            var rate = parseFloat(document.getElementById('hourlyRate').value) || 0;
-            var total = (hours * rate).toFixed(2);
-            
-            if (total <= 0 || total > 3900000) {
-                document.getElementById('totalAmountDisplay').classList.add('is-invalid');
-                document.getElementById('totalAmount').setCustomValidity('Amount must be between R0.01 and R3,900,000');
-            } else {
-                document.getElementById('totalAmountDisplay').classList.remove('is-invalid');
-                document.getElementById('totalAmount').setCustomValidity('');
-            }
-            
-            // Format display amount with thousand separators
-            document.getElementById('totalAmountDisplay').value = parseFloat(total).toLocaleString('en-ZA', {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2
-            });
-            document.getElementById('totalAmount').value = total;
-        }
-
-        // Calculate total on page load and input changes
-        document.addEventListener('DOMContentLoaded', function() {
-            calculateTotal();
-            
-            document.getElementById('hoursWorked').addEventListener('input', function() {
-                if (this.value < 0.5 || this.value > 195) {
-                    this.classList.add('is-invalid');
-                } else {
-                    this.classList.remove('is-invalid');
-                }
-                calculateTotal();
-            });
-            
-            document.getElementById('hourlyRate').addEventListener('input', function() {
-                if (this.value < 1 || this.value > 20000) {
-                    this.classList.add('is-invalid');
-                } else {
-                    this.classList.remove('is-invalid');
-                }
-                calculateTotal();
-            });
-
-            // Add character count display for additional notes
-            var additionalNotes = document.querySelector('[asp-for="AdditionalNotes"]');
-            var charCount = document.createElement('small');
-            charCount.className = 'text-muted d-block mt-1';
-            additionalNotes.parentNode.insertBefore(charCount, additionalNotes.nextSibling);
-
-            function updateCharCount() {
-                var length = additionalNotes.value.length;
-                charCount.textContent = `Characters: ${length}/500`;
+        $(document).ready(function() {
+            // Handle department change to load modules
+            $('#DepartmentId').change(function() {
+                var departmentId = $(this).val();
+                var moduleSelect = $('#ModuleId');
+                moduleSelect.empty();
+                moduleSelect.append('<option value="">Select Module</option>');
                 
-                if (length < 10 || length > 500) {
-                    additionalNotes.classList.add('is-invalid');
-                } else {
-                    additionalNotes.classList.remove('is-invalid');
+                if (departmentId) {
+                    $.get('/api/Claim/GetModules/' + departmentId, function(modules) {
+                        if (modules.error) {
+                            console.error(modules.error);
+                            return;
+                        }
+                        $.each(modules, function(i, module) {
+                            moduleSelect.append($('<option></option>')
+                                .attr('value', module.id)
+                                .text(module.name));
+                        });
+                    });
                 }
+            });
+
+            // Calculate total amount when hours or rate changes
+            function calculateTotal() {
+                var hours = parseFloat($('#hoursWorked').val()) || 0;
+                var rate = parseFloat($('#hourlyRate').val()) || 0;
+                var total = (hours * rate).toFixed(2);
+                $('#totalAmountDisplay').val('R ' + total);
+                $('#totalAmountValue').val(total);
             }
 
-            additionalNotes.addEventListener('input', updateCharCount);
-            updateCharCount(); // Initial count
-        });
+            $('#hoursWorked, #hourlyRate').on('input', calculateTotal);
 
-        // Form validation
-        document.getElementById('claimForm').addEventListener('submit', function(e) {
-            var additionalNotes = document.querySelector('[asp-for="AdditionalNotes"]');
-            var length = additionalNotes.value.length;
-            
-            if (length < 10 || length > 500) {
-                e.preventDefault();
-                additionalNotes.classList.add('is-invalid');
-                return;
-            }
-
-            var fileInput = document.querySelector('input[type="file"]');
-            if (fileInput.files.length === 0) {
-                e.preventDefault();
-                alert('Please select a supporting document');
-                return;
-            }
-
-            if (fileInput.files.length > 0) {
-                var fileSize = fileInput.files[0].size;
-                var maxSize = 5 * 1024 * 1024; // 5MB
-                if (fileSize > maxSize) {
-                    e.preventDefault();
-                    alert('File size cannot exceed 5MB');
-                }
-            }
+            // Form validation
+            (function() {
+                'use strict';
+                var forms = document.querySelectorAll('.needs-validation');
+                Array.prototype.slice.call(forms).forEach(function(form) {
+                    form.addEventListener('submit', function(event) {
+                        if (!form.checkValidity()) {
+                            event.preventDefault();
+                            event.stopPropagation();
+                        }
+                        form.classList.add('was-validated');
+                    }, false);
+                });
+            })();
         });
     </script>
 }

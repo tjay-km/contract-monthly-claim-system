@@ -30,6 +30,7 @@ namespace CMCS.Models
         public string ConfirmPassword { get; set; }
 
         [Required]
+        [Display(Name = "Role")]
         public string Role { get; set; }
     }
 }

@@ -24,19 +24,22 @@ namespace CMCS.Controllers
         private readonly IClaimReportService _reportService;
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly ApplicationDbContext _context;
+        private readonly ILogger _logger;
 
         public HRController(
             IClaimApprovalService approvalService,
             IClaimAuditService auditService,
             IClaimReportService reportService,
             UserManager<ApplicationUser> userManager,
-            ApplicationDbContext context)
+            ApplicationDbContext context,
+            ILogger<HRController> logger)
         {
             _approvalService = approvalService;
             _auditService = auditService;
             _reportService = reportService;
             _userManager = userManager;
             _context = context;
+            _logger = logger;
         }
 
         public IActionResult Reports()
@@ -195,35 +198,114 @@ namespace CMCS.Controllers
             }
         }
 
+        private async Task<IActionResult> HandleUserAction(string userId, Func<ApplicationUser, Task> action)
+        {
+            var user = await _userManager.FindByIdAsync(userId);
+            if (user == null)
+            {
+                return NotFound("User not found");
+            }
+
+            try
+            {
+                await action(user);
+                return RedirectToAction(nameof(ManageLecturers));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error performing user action for {UserId}", userId);
+                return BadRequest("Error performing action");
+            }
+        }
+
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> UpdateAutoApprovalConfig(AutoApprovalConfig config)
         {
             if (!ModelState.IsValid)
             {
-                return RedirectToAction("Reports");
+                return BadRequest(ModelState);
             }
 
-            try
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(userId))
+            {
+                return Unauthorized();
+            }
+
+            var user = await _userManager.FindByIdAsync(userId);
+            if (user == null)
+            {
+                return NotFound("User not found");
+            }
+
+            var success = await _reportService.UpdateAutoApprovalConfigAsync(config, user.UserName ?? "Unknown");
+            if (!success)
+            {
+                return BadRequest("Failed to update auto-approval configuration");
+            }
+
+            return RedirectToAction(nameof(Dashboard));
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> EditLecturer(EditLecturerViewModel model)
+        {
+            if (!ModelState.IsValid)
+                return View(model);
+
+            var lecturer = await _userManager.FindByIdAsync(model.Id);
+            if (lecturer == null)
+                return NotFound();
+
+            lecturer.Email = model.Email;
+            lecturer.PhoneNumber = model.PhoneNumber;
+            lecturer.FirstName = model.FirstName;
+            lecturer.LastName = model.LastName;
+            lecturer.Department = model.Department;
+
+            await _userManager.UpdateAsync(lecturer);
+
+            var user = await _userManager.GetUserAsync(User);
+            await _auditService.LogAuditAsync(
+                0,
+                "Edit Lecturer",
+                user?.Id ?? "Unknown",
+                $"Updated lecturer details for {lecturer.FirstName} {lecturer.LastName}"
+            );
+
+            TempData["SuccessMessage"] = "Lecturer details updated successfully.";
+            return RedirectToAction("ManageLecturers");
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> DeleteLecturer(string id)
+        {
+            var lecturer = await _userManager.FindByIdAsync(id);
+            if (lecturer == null)
+                return NotFound();
+
+            var result = await _userManager.DeleteAsync(lecturer);
+            if (result.Succeeded)
             {
                 var user = await _userManager.GetUserAsync(User);
-                await _reportService.UpdateAutoApprovalConfigAsync(config, user.Id);
-
                 await _auditService.LogAuditAsync(
-                    0, // No specific claim ID for config updates
-                    "Update Auto-Approval Config",
-                    user.Id,
-                    $"Updated auto-approval configuration: Max amount = {config.MaxAutoApprovalAmount:C}, Enabled = {config.EnableAutoApproval}"
+                    0,
+                    "Delete Lecturer",
+                    user?.Id ?? "Unknown",
+                    $"Deleted lecturer {lecturer.FirstName} {lecturer.LastName}"
                 );
 
-                TempData["SuccessMessage"] = "Auto-approval configuration updated successfully.";
+                TempData["SuccessMessage"] = "Lecturer deleted successfully.";
             }
-            catch (Exception)
+            else
             {
-                TempData["ErrorMessage"] = "Failed to update auto-approval configuration.";
+                TempData["ErrorMessage"] = "Failed to delete lecturer.";
             }
 
-            return RedirectToAction("Reports");
+            return RedirectToAction("ManageLecturers");
         }
 
         public async Task<IActionResult> Dashboard()
@@ -234,15 +316,43 @@ namespace CMCS.Controllers
 
             var users = await _userManager.Users.ToListAsync();
 
-            var serviceStatistics = await _reportService.GetClaimStatisticsAsync(claims.ToList());
+            var serviceStatistics = await _reportService.GetClaimStatisticsAsync(claims);
             
-            Console.WriteLine("Debug: Claims Count: " + claims.Count);
-            Console.WriteLine("Debug: Service Statistics:");
-            Console.WriteLine($"Total Claims: {serviceStatistics.TotalClaims}");
-            Console.WriteLine($"Pending Claims: {serviceStatistics.PendingClaims}");
-            Console.WriteLine($"Approved Claims: {serviceStatistics.ApprovedClaims}");
-            Console.WriteLine($"Rejected Claims: {serviceStatistics.RejectedClaims}");
-            Console.WriteLine($"Total Amount: {serviceStatistics.TotalAmount}");
+            // Convert service statistics to model statistics
+            var modelStatistics = new ClaimStatisticsModel
+            {
+                TotalClaims = serviceStatistics.TotalClaims,
+                PendingClaims = serviceStatistics.PendingClaims,
+                ApprovedClaims = serviceStatistics.ApprovedClaims,
+                RejectedClaims = serviceStatistics.RejectedClaims,
+                TotalAmount = serviceStatistics.TotalAmount,
+                AverageAmount = serviceStatistics.AverageAmount,
+                DepartmentStatistics = serviceStatistics.DepartmentStatistics
+                    .ToDictionary(
+                        kvp => kvp.Key,
+                        kvp => new DepartmentStatsModel
+                        {
+                            Department = kvp.Key,
+                            TotalClaims = kvp.Value.TotalClaims,
+                            TotalAmount = kvp.Value.TotalAmount
+                        }
+                    ),
+                ClaimsByStatus = serviceStatistics.ClaimsByStatus
+            };
+            
+            // Group claims by department for department statistics
+            var departmentStats = users
+                .Where(u => u.Department != null)
+                .GroupBy(u => u.Department)
+                .Select(g => new DepartmentStatsModel
+                {
+                    Department = g.Key ?? "Unknown",
+                    TotalClaims = claims.Count(c => c.User != null && c.User.Department == g.Key),
+                    TotalAmount = claims
+                        .Where(c => c.User != null && c.User.Department == g.Key)
+                        .Sum(c => c.TotalAmount)
+                })
+                .ToList();
 
             var viewModel = new HRDashboardViewModel
             {
@@ -251,39 +361,23 @@ namespace CMCS.Controllers
                 RecentAudits = (await _auditService.GetRecentAuditsAsync()).ToList(),
                 RecentReports = (await _reportService.GetRecentReportsAsync()).ToList(),
                 AutoApprovalConfig = await _reportService.GetCurrentAutoApprovalConfigAsync(),
-                Statistics = new CMCS.Models.ClaimStatistics 
-                {
-                    TotalClaims = serviceStatistics.TotalClaims,
-                    AutoApprovedClaims = serviceStatistics.ApprovedClaims,
-                    PendingClaims = serviceStatistics.PendingClaims,
-                    RejectedClaims = serviceStatistics.RejectedClaims,
-                    TotalAmountApproved = serviceStatistics.TotalAmount,
-                    AverageClaimAmount = serviceStatistics.AverageAmount
-                },
-                TotalClaims = serviceStatistics.TotalClaims,
-                PendingClaims = serviceStatistics.PendingClaims,
-                ApprovedClaims = serviceStatistics.ApprovedClaims,
-                RejectedClaims = serviceStatistics.RejectedClaims,
-                TotalClaimAmount = serviceStatistics.TotalAmount,
-                RecentClaims = claims
-                    .OrderByDescending(c => c.SubmissionDate)
-                    .Take(10)
-                    .Select(c => new ClaimSummaryViewModel
-                    {
-                        ClaimId = c.Id,
-                        LecturerName = c.LecturerName,
-                        Department = c.LecturerDepartment,
-                        TotalAmount = c.TotalAmount,
-                        Status = c.Status,
-                        SubmissionDate = c.SubmissionDate
-                    })
-                    .ToList(),
+                Statistics = modelStatistics,
+                TotalClaims = modelStatistics.TotalClaims,
+                PendingClaimsCount = modelStatistics.PendingClaims,
+                ApprovedClaimsCount = modelStatistics.ApprovedClaims,
+                RejectedClaimsCount = modelStatistics.RejectedClaims,
+                TotalClaimAmount = modelStatistics.TotalAmount,
+                PendingClaims = claims.Where(c => c.Status == ClaimStatus.Pending).ToList(),
+                ApprovedClaims = claims.Where(c => c.Status == ClaimStatus.Approved).ToList(),
+                RejectedClaims = claims.Where(c => c.Status == ClaimStatus.Rejected).ToList(),
+                RecentClaims = claims.OrderByDescending(c => c.SubmissionDate).Take(10).ToList(),
+                DepartmentStats = departmentStats,
                 UserSummaries = users
                     .Where(u => _userManager.IsInRoleAsync(u, "Lecturer").Result)
                     .Select(u => new UserSummaryViewModel
                     {
                         UserId = u.Id,
-                        Name = u.Name,
+                        Name = $"{u.FirstName} {u.LastName}",
                         Department = u.Department ?? "Unknown", 
                         TotalClaims = claims.Count(c => c.UserId == u.Id),
                         TotalClaimAmount = claims
@@ -294,12 +388,6 @@ namespace CMCS.Controllers
                     .OrderByDescending(summary => summary.TotalClaimAmount)
                     .ToList()
             };
-
-            // Debug logging
-            foreach (var user in users.Where(u => _userManager.IsInRoleAsync(u, "Lecturer").Result))
-            {
-                Console.WriteLine($"Lecturer: {user.Name}, Department: {user.Department ?? "NULL"}, Role: {string.Join(", ", _userManager.GetRolesAsync(user).Result)}");
-            }
 
             return View(viewModel);
         }
@@ -361,66 +449,6 @@ namespace CMCS.Controllers
             };
 
             return View(viewModel);
-        }
-
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        public async Task<IActionResult> EditLecturer(EditLecturerViewModel model)
-        {
-            if (!ModelState.IsValid)
-                return View(model);
-
-            var lecturer = await _userManager.FindByIdAsync(model.Id);
-            if (lecturer == null)
-                return NotFound();
-
-            lecturer.Email = model.Email;
-            lecturer.PhoneNumber = model.PhoneNumber;
-            lecturer.FirstName = model.FirstName;
-            lecturer.LastName = model.LastName;
-            lecturer.Department = model.Department;
-
-            await _userManager.UpdateAsync(lecturer);
-
-            var user = await _userManager.GetUserAsync(User);
-            await _auditService.LogAuditAsync(
-                0,
-                "Edit Lecturer",
-                user?.Id ?? "Unknown",
-                $"Updated lecturer details for {lecturer.FirstName} {lecturer.LastName}"
-            );
-
-            TempData["SuccessMessage"] = "Lecturer details updated successfully.";
-            return RedirectToAction("ManageLecturers");
-        }
-
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        public async Task<IActionResult> DeleteLecturer(string id)
-        {
-            var lecturer = await _userManager.FindByIdAsync(id);
-            if (lecturer == null)
-                return NotFound();
-
-            var result = await _userManager.DeleteAsync(lecturer);
-            if (result.Succeeded)
-            {
-                var user = await _userManager.GetUserAsync(User);
-                await _auditService.LogAuditAsync(
-                    0,
-                    "Delete Lecturer",
-                    user?.Id ?? "Unknown",
-                    $"Deleted lecturer {lecturer.FirstName} {lecturer.LastName}"
-                );
-
-                TempData["SuccessMessage"] = "Lecturer deleted successfully.";
-            }
-            else
-            {
-                TempData["ErrorMessage"] = "Failed to delete lecturer.";
-            }
-
-            return RedirectToAction("ManageLecturers");
         }
 
         [HttpGet]

@@ -1,4 +1,5 @@
 using CMCS.Models;
+using CMCS.Models.Enums;
 using System;
 using Xunit;
 
@@ -21,7 +22,7 @@ namespace CMCS.Tests
                 HourlyRate = 50,
                 TotalAmount = 500,
                 AdditionalNotes = "Test notes with minimum length",
-                Status = "Pending",
+                Status = ClaimStatus.Pending,
                 ModuleCode = "CS101",
                 SupportingDocumentPath = "/path/to/document.pdf"
             };
@@ -35,7 +36,7 @@ namespace CMCS.Tests
             Assert.Equal(50, claim.HourlyRate);
             Assert.Equal(500, claim.TotalAmount);
             Assert.Equal("Test notes with minimum length", claim.AdditionalNotes);
-            Assert.Equal("Pending", claim.Status);
+            Assert.Equal(ClaimStatus.Pending, claim.Status);
             Assert.Equal("CS101", claim.ModuleCode);
             Assert.Equal("/path/to/document.pdf", claim.SupportingDocumentPath);
         }
