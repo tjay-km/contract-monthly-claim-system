@@ -1,4 +1,4 @@
-# CMCS - Contract Monthly Claim System
+﻿# CMCS - Contract Monthly Claim System
 
 An ASP.NET Core 8 MVC web app that lets contract lecturers submit monthly claims for the hours
 they've worked. Programme coordinators and academic managers then review, approve or reject them.
@@ -10,7 +10,7 @@ An HR area adds statistics, lecturer management, an audit trail and PDF reports.
 ## Features
 
 **Lecturers**
-- Submit a claim: module code, hours worked × hourly rate, notes and a supporting document
+- Submit a claim: module code, hours worked Ã— hourly rate, notes and a supporting document
   (PDF, DOCX or XLSX, up to 5 MB). The total is always calculated on the server.
 - Claims within the auto-approval limit (R5,000 by default, configurable by HR) are approved
   instantly; larger ones wait for review.
@@ -42,8 +42,8 @@ An HR area adds statistics, lecturer management, an audit trail and PDF reports.
 
 ## Tech stack
 
-ASP.NET Core 8 MVC · C# · Entity Framework Core 8 (SQL Server / LocalDB) · ASP.NET Core Identity ·
-Razor views with Tailwind/Bootstrap · iText 7 · NUnit, Moq and `WebApplicationFactory`
+ASP.NET Core 8 MVC Â· C# Â· Entity Framework Core 8 (SQL Server / LocalDB) Â· ASP.NET Core Identity Â·
+Razor views with Tailwind/Bootstrap Â· iText 7 Â· NUnit, Moq and `WebApplicationFactory`
 
 ## Getting started
 
@@ -52,8 +52,8 @@ LocalDB (installed with Visual Studio). You can also point `ConnectionStrings:De
 `appsettings.json` at any SQL Server instance.
 
 ```bash
-git clone https://github.com/tjay-km/<repo-name>.git
-cd <repo-name>
+git clone https://github.com/tjay-km/contract-monthly-claim-system.git
+cd contract-monthly-claim-system
 dotnet run --project CMCS.csproj
 ```
 
