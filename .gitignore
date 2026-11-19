@@ -65,3 +65,13 @@ artifacts/
 *.pidb
 *.svclog
 *.scc
+
+# Runtime files
+wwwroot/uploads/
+*.log
+error_log.txt
+report_generation_errors.txt
+report_service_errors.txt
+# Coursework documents
+*.docx
+*.pptx
