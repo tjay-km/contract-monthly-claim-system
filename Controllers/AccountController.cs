@@ -1,110 +1,92 @@
 using System.Threading.Tasks;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Authorization;
-using System.Security.Claims;
 using CMCS.Models;
-using CMCS.Services;
-using System.Collections.Generic;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc;
 
 namespace CMCS.Controllers
 {
     public class AccountController : Controller
     {
+        /// <summary>
+        /// Self-registration always creates a lecturer. Coordinator and manager accounts are
+        /// created by an administrator (seeded in development).
+        /// </summary>
+        public const string SelfRegistrationRole = "Lecturer";
+
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly SignInManager<ApplicationUser> _signInManager;
-        private readonly IIdentityService _identityService;
 
-        public AccountController(
-            UserManager<ApplicationUser> userManager,
-            SignInManager<ApplicationUser> signInManager,
-            IIdentityService identityService)
+        public AccountController(UserManager<ApplicationUser> userManager, SignInManager<ApplicationUser> signInManager)
         {
             _userManager = userManager;
             _signInManager = signInManager;
-            _identityService = identityService;
         }
 
         [HttpGet]
-        public IActionResult Register()
-        {
-            return View();
-        }
+        public IActionResult Register() => View();
 
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Register(RegisterViewModel model)
         {
-            if (ModelState.IsValid)
+            if (!ModelState.IsValid)
+                return View(model);
+
+            var user = new ApplicationUser
             {
-                var user = new ApplicationUser
-                {
-                    UserName = model.UserName,
-                    Email = model.Email,
-                    FirstName = model.FirstName,
-                    LastName = model.LastName,
-                    Name = $"{model.FirstName} {model.LastName}",
-                    Department = model.Department,
-                    Role = model.Role,
-                    UserType = GetUserType(model.Role)
-                };
+                UserName = model.UserName,
+                Email = model.Email,
+                FirstName = model.FirstName,
+                LastName = model.LastName,
+                Name = $"{model.FirstName} {model.LastName}",
+                Department = model.Department,
+                Role = SelfRegistrationRole,
+                UserType = UserType.Lecturer
+            };
 
-                var result = await _userManager.CreateAsync(user, model.Password);
-                if (result.Succeeded)
-                {
-                    await _userManager.AddToRoleAsync(user, model.Role);
-                    TempData["SuccessMessage"] = "Registration successful! Please log in to continue.";
-                    return RedirectToAction("Login", "Account");
-                }
+            var result = await _userManager.CreateAsync(user, model.Password);
+            if (result.Succeeded)
+                result = await _userManager.AddToRoleAsync(user, SelfRegistrationRole);
 
-                foreach (var error in result.Errors)
-                {
-                    ModelState.AddModelError(string.Empty, error.Description);
-                }
+            if (result.Succeeded)
+            {
+                TempData["SuccessMessage"] = "Registration successful! Please log in to continue.";
+                return RedirectToAction(nameof(Login));
             }
 
+            foreach (var error in result.Errors)
+                ModelState.AddModelError(string.Empty, error.Description);
             return View(model);
         }
 
-        private UserType GetUserType(string role)
-        {
-            return role switch
-            {
-                "Lecturer" => UserType.Lecturer,
-                "ProgrammeCoordinator" => UserType.HR,
-                "AcademicManager" => UserType.HR,
-                _ => UserType.Lecturer
-            };
-        }
-
         [HttpGet]
-        public IActionResult Login()
-        {
-            return View();
-        }
+        public IActionResult Login() => View();
 
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Login(LoginViewModel model)
         {
-            if (ModelState.IsValid)
+            if (!ModelState.IsValid)
+                return View(model);
+
+            var user = await _userManager.FindByNameAsync(model.EmailOrUsername)
+                       ?? await _userManager.FindByEmailAsync(model.EmailOrUsername);
+            if (user is { IsActive: false })
             {
-                var result = await _signInManager.PasswordSignInAsync(model.EmailOrUsername, model.Password, model.RememberMe, lockoutOnFailure: true);
-                if (result.Succeeded)
-                {
-                    return RedirectToAction("Index", "Home");
-                }
-                if (result.IsLockedOut)
-                {
-                    return View("Lockout");
-                }
-                else
-                {
-                    ModelState.AddModelError(string.Empty, "Invalid login attempt.");
-                    return View(model);
-                }
+                ModelState.AddModelError(string.Empty, "This account has been deactivated. Please contact HR.");
+                return View(model);
             }
 
+            var result = user == null
+                ? Microsoft.AspNetCore.Identity.SignInResult.Failed
+                : await _signInManager.PasswordSignInAsync(user, model.Password, model.RememberMe, lockoutOnFailure: true);
+
+            if (result.Succeeded)
+                return RedirectToAction("Index", "Home");
+            if (result.IsLockedOut)
+                return View("Lockout");
+
+            ModelState.AddModelError(string.Empty, "Invalid login attempt.");
             return View(model);
         }
 
@@ -117,9 +99,6 @@ namespace CMCS.Controllers
         }
 
         [HttpGet]
-        public IActionResult AccessDenied()
-        {
-            return View();
-        }
+        public IActionResult AccessDenied() => View();
     }
 }

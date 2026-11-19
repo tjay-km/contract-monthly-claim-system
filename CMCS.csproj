@@ -6,33 +6,17 @@
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
 
+  <!-- The test project lives in a sub-folder; keep it out of the web app's build. -->
   <ItemGroup>
-    <Compile Remove="NewFolder\**" />
-    <Compile Remove="Views\NewFolder1\**" />
-    <Compile Remove="CMCS.Tests\**" />
     <Compile Remove="CMCS.Tests.New\**" />
-    <Content Remove="NewFolder\**" />
-    <Content Remove="Views\NewFolder1\**" />
-    <Content Remove="CMCS.Tests\**" />
     <Content Remove="CMCS.Tests.New\**" />
-    <EmbeddedResource Remove="NewFolder\**" />
-    <EmbeddedResource Remove="Views\NewFolder1\**" />
-    <EmbeddedResource Remove="CMCS.Tests\**" />
     <EmbeddedResource Remove="CMCS.Tests.New\**" />
-    <None Remove="NewFolder\**" />
-    <None Remove="Views\NewFolder1\**" />
-    <None Remove="CMCS.Tests\**" />
     <None Remove="CMCS.Tests.New\**" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Content Remove="Views\Claim\SubmitClaim.cshtml" />
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="itext7" Version="7.2.0" />
     <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="8.0.0" />
-    <PackageReference Include="Microsoft.AspNetCore.Identity.UI" Version="8.0.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="8.0.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.0">
       <PrivateAssets>all</PrivateAssets>
@@ -43,11 +27,6 @@
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
-    <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="8.0.1" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Folder Include="wwwroot\uploads\" />
   </ItemGroup>
 
 </Project>

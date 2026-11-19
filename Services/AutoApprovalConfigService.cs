@@ -1,8 +1,9 @@
 using System;
+using System.Linq;
 using System.Threading.Tasks;
-using Microsoft.EntityFrameworkCore;
-using CMCS.Models;
 using CMCS.Data;
+using CMCS.Models;
+using Microsoft.EntityFrameworkCore;
 
 namespace CMCS.Services
 {
@@ -17,28 +18,29 @@ namespace CMCS.Services
 
         public async Task<AutoApprovalConfig> GetCurrentConfigAsync()
         {
-            var config = await _context.AutoApprovalConfigs.FirstOrDefaultAsync();
-            if (config == null)
+            var config = await _context.AutoApprovalConfigs
+                .AsNoTracking()
+                .OrderByDescending(c => c.LastModifiedDate)
+                .ThenByDescending(c => c.Id)
+                .FirstOrDefaultAsync();
+
+            return config ?? new AutoApprovalConfig
             {
-                config = new AutoApprovalConfig
-                {
-                    MaxAutoApprovalAmount = 5000m, // Default maximum amount
-                    EnableAutoApproval = true,
-                    LastModifiedBy = "System",
-                    LastModifiedDate = DateTime.Now,
-                    Description = "Default auto-approval configuration"
-                };
-                _context.AutoApprovalConfigs.Add(config);
-                await _context.SaveChangesAsync();
-            }
-            return config;
+                LastModifiedBy = "System",
+                Description = "Default auto-approval configuration"
+            };
         }
 
         public async Task UpdateConfigAsync(AutoApprovalConfig config, string modifiedBy)
         {
-            config.LastModifiedBy = modifiedBy;
-            config.LastModifiedDate = DateTime.Now;
-            _context.AutoApprovalConfigs.Update(config);
+            _context.AutoApprovalConfigs.Add(new AutoApprovalConfig
+            {
+                EnableAutoApproval = config.EnableAutoApproval,
+                MaxAutoApprovalAmount = config.MaxAutoApprovalAmount,
+                Description = config.Description ?? string.Empty,
+                LastModifiedBy = modifiedBy,
+                LastModifiedDate = DateTime.Now
+            });
             await _context.SaveChangesAsync();
         }
 

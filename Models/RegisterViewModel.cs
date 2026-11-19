@@ -12,7 +12,6 @@ namespace CMCS.Models
             UserName = string.Empty;
             Password = string.Empty;
             ConfirmPassword = string.Empty;
-            Role = string.Empty;
             Department = string.Empty;
         }
 
@@ -46,11 +45,6 @@ namespace CMCS.Models
         [Display(Name = "Confirm password")]
         [Compare("Password", ErrorMessage = "The password and confirmation password do not match.")]
         public string ConfirmPassword { get; set; }
-
-        [Required]
-        [Display(Name = "Role")]
-        public string Role { get; set; }
-
         [Required]
         [Display(Name = "Department")]
         public string Department { get; set; }

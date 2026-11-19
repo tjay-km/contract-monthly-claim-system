@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="utf-8" />
@@ -35,7 +35,7 @@
             <div class="flex items-center gap-9">
                 <a class="text-sm font-medium leading-normal" href="/">Home</a>
                 <a class="text-sm font-medium leading-normal" href="/Home/Features">Features</a>
-                @if (User.Identity.IsAuthenticated)
+                @if (User.Identity?.IsAuthenticated == true)
                 {
                     <a class="text-sm font-medium leading-normal" href="/Dashboard/Index">Dashboard</a>
                 }
@@ -47,7 +47,7 @@
             </div>
 
             <div class="flex gap-2">
-                @if (User.Identity.IsAuthenticated)
+                @if (User.Identity?.IsAuthenticated == true)
                 {
                     <!-- Show Logout button if user is logged in -->
                     <form class="form-inline" asp-controller="Account" asp-action="Logout" method="post">
@@ -81,7 +81,7 @@
         <div class="px-2 pt-2 pb-3 space-y-1">
             <a href="/" class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-50">Home</a>
             <a href="/Home/Features" class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-50">Features</a>
-            @if (User.Identity.IsAuthenticated)
+            @if (User.Identity?.IsAuthenticated == true)
             {
                 <a href="/Dashboard/Index" class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-50">Dashboard</a>
             }

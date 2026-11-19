@@ -1,90 +1,66 @@
-using CMCS.Models;
-using CMCS.Data;
-using Microsoft.EntityFrameworkCore;
-using System.Collections.Generic;
-using System.Threading.Tasks;
-using System.Linq;
-using Microsoft.AspNetCore.Http;
-using System.IO;
 using System;
+using System.IO;
+using System.Linq;
+using System.Threading.Tasks;
+using CMCS.Models;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Options;
 
 namespace CMCS.Services
 {
+    /// <summary>
+    /// Stores supporting documents in App_Data/uploads, which is not served as static content,
+    /// so files can only be downloaded through the authorised DownloadDocument action.
+    /// </summary>
     public class DocumentService : IDocumentService
     {
-        private readonly ApplicationDbContext _context;
+        private readonly FileUploadSettings _settings;
         private readonly string _uploadDirectory;
 
-        public DocumentService(ApplicationDbContext context)
+        public DocumentService(IWebHostEnvironment environment, IOptions<FileUploadSettings> settings)
         {
-            _context = context;
-            _uploadDirectory = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads");
-            if (!Directory.Exists(_uploadDirectory))
-            {
-                Directory.CreateDirectory(_uploadDirectory);
-            }
+            _settings = settings.Value;
+            _uploadDirectory = Path.Combine(environment.ContentRootPath, "App_Data", "uploads");
+            Directory.CreateDirectory(_uploadDirectory);
+        }
+
+        public string? Validate(IFormFile? file)
+        {
+            if (file == null || file.Length == 0)
+                return "Please attach a supporting document.";
+
+            if (file.Length > _settings.MaxFileSize)
+                return $"The file is too large. The maximum size is {_settings.MaxFileSize / (1024 * 1024)} MB.";
+
+            var extension = Path.GetExtension(file.FileName);
+            if (!_settings.AllowedFileTypes.Contains(extension, StringComparer.OrdinalIgnoreCase))
+                return $"Only {string.Join(", ", _settings.AllowedFileTypes)} files are allowed.";
+
+            return null;
         }
 
         public async Task<string> SaveDocumentAsync(IFormFile file)
         {
-            if (file == null || file.Length == 0)
-                throw new ArgumentException("No file was uploaded.");
+            var error = Validate(file);
+            if (error != null)
+                throw new InvalidOperationException(error);
 
-            // Create a unique filename
-            string uniqueFileName = $"{Guid.NewGuid()}_{Path.GetFileName(file.FileName)}";
-            string filePath = Path.Combine(_uploadDirectory, uniqueFileName);
-
-            // Save the file
-            using (var stream = new FileStream(filePath, FileMode.Create))
-            {
-                await file.CopyToAsync(stream);
-            }
-
-            return uniqueFileName;
+            // Never trust the client's file name: keep only its extension.
+            var storedFileName = $"{Guid.NewGuid():N}{Path.GetExtension(file.FileName).ToLowerInvariant()}";
+            await using var stream = new FileStream(Path.Combine(_uploadDirectory, storedFileName), FileMode.CreateNew);
+            await file.CopyToAsync(stream);
+            return storedFileName;
         }
 
-        public async Task<string> AddClaimDocument(ClaimDocument claimDocument, IFormFile file)
+        public string? GetDocumentPath(string? storedFileName)
         {
-            if (file == null || file.Length == 0)
-                throw new ArgumentException("No file was uploaded.");
+            if (string.IsNullOrWhiteSpace(storedFileName))
+                return null;
 
-            // Save the file and get the path
-            string fileName = await SaveDocumentAsync(file);
-            
-            // Update the claim document with the file info
-            claimDocument.FileName = fileName;
-            claimDocument.FilePath = Path.Combine("uploads", fileName);
-            claimDocument.DateUploaded = DateTime.UtcNow;
-
-            // Save to database
-            _context.ClaimDocuments.Add(claimDocument);
-            await _context.SaveChangesAsync();
-
-            return claimDocument.FilePath;
-        }
-
-        public async Task<List<ClaimDocument>> GetClaimDocuments(int claimId)
-        {
-            return await _context.ClaimDocuments
-                .Where(x => x.ClaimId == claimId)
-                .ToListAsync();
-        }
-
-        public async Task DeleteClaimDocument(int claimDocumentId)
-        {
-            var claimDocument = await _context.ClaimDocuments.FindAsync(claimDocumentId);
-            if (claimDocument != null)
-            {
-                // Delete the physical file
-                string filePath = Path.Combine(_uploadDirectory, claimDocument.FileName);
-                if (File.Exists(filePath))
-                {
-                    File.Delete(filePath);
-                }
-
-                _context.ClaimDocuments.Remove(claimDocument);
-                await _context.SaveChangesAsync();
-            }
+            // GetFileName strips any directory parts, which blocks path traversal.
+            var path = Path.Combine(_uploadDirectory, Path.GetFileName(storedFileName));
+            return File.Exists(path) ? path : null;
         }
     }
 }

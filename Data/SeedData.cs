@@ -1,94 +1,77 @@
-using System;
-using System.Threading.Tasks;
-using Microsoft.AspNetCore.Identity;
-using System.Security.Claims;
-using CMCS.Models;
 using System.Linq;
+using System.Threading.Tasks;
+using CMCS.Models;
+using Microsoft.AspNetCore.Identity;
+using SecurityClaim = System.Security.Claims.Claim;
 
 namespace CMCS.Data
 {
     public static class SeedData
     {
-        public static async Task InitializeRolesAndClaims(
-            RoleManager<IdentityRole> roleManager,
-            UserManager<ApplicationUser> userManager)
+        public static readonly string[] Roles = { "Lecturer", "ProgrammeCoordinator", "AcademicManager" };
+
+        private static readonly (string Role, string[] Permissions)[] RolePermissions =
         {
-            // Create roles if they don't exist
-            string[] roles = { "Lecturer", "ProgrammeCoordinator", "AcademicManager" };
-            foreach (var roleName in roles)
+            ("Lecturer", new[] { "SubmitClaim", "ViewOwnClaims" }),
+            ("ProgrammeCoordinator", new[] { "ReviewClaims", "ApproveClaims", "RejectClaims" }),
+            ("AcademicManager", new[] { "ReviewClaims", "ApproveClaims", "RejectClaims", "ViewAllClaims" })
+        };
+
+        /// <summary>Creates the roles and their permission claims. Safe to run on every start.</summary>
+        public static async Task InitializeRolesAsync(RoleManager<IdentityRole> roleManager)
+        {
+            foreach (var (roleName, permissions) in RolePermissions)
             {
-                if (!await roleManager.RoleExistsAsync(roleName))
+                var role = await roleManager.FindByNameAsync(roleName);
+                if (role == null)
                 {
-                    await roleManager.CreateAsync(new IdentityRole(roleName));
+                    role = new IdentityRole(roleName);
+                    await roleManager.CreateAsync(role);
                 }
+
+                var existing = (await roleManager.GetClaimsAsync(role))
+                    .Where(c => c.Type == "Permission")
+                    .Select(c => c.Value)
+                    .ToHashSet();
+
+                foreach (var permission in permissions.Where(p => !existing.Contains(p)))
+                    await roleManager.AddClaimAsync(role, new SecurityClaim("Permission", permission));
             }
+        }
 
-            // Add claims to roles
-            var lecturerRole = await roleManager.FindByNameAsync("Lecturer");
-            var coordinatorRole = await roleManager.FindByNameAsync("ProgrammeCoordinator");
-            var managerRole = await roleManager.FindByNameAsync("AcademicManager");
-
-            // Lecturer claims
-            if (!await roleManager.GetClaimsAsync(lecturerRole).ContinueWith(t => t.Result.Any(c => c.Type == "Permission")))
+        /// <summary>
+        /// Creates one demo account per role. Only called in the Development environment.
+        /// </summary>
+        public static async Task SeedDemoUsersAsync(UserManager<ApplicationUser> userManager, string password)
+        {
+            var demoUsers = new[]
             {
-                await roleManager.AddClaimAsync(lecturerRole, new System.Security.Claims.Claim("Permission", "SubmitClaim"));
-                await roleManager.AddClaimAsync(lecturerRole, new System.Security.Claims.Claim("Permission", "ViewOwnClaims"));
-            }
-
-            // Programme Coordinator claims
-            if (!await roleManager.GetClaimsAsync(coordinatorRole).ContinueWith(t => t.Result.Any(c => c.Type == "Permission")))
-            {
-                await roleManager.AddClaimAsync(coordinatorRole, new System.Security.Claims.Claim("Permission", "ReviewClaims"));
-                await roleManager.AddClaimAsync(coordinatorRole, new System.Security.Claims.Claim("Permission", "ApproveClaims"));
-                await roleManager.AddClaimAsync(coordinatorRole, new System.Security.Claims.Claim("Permission", "RejectClaims"));
-                await roleManager.AddClaimAsync(coordinatorRole, new System.Security.Claims.Claim("MaxApprovalAmount", "5000"));
-            }
-
-            // Academic Manager claims
-            if (!await roleManager.GetClaimsAsync(managerRole).ContinueWith(t => t.Result.Any(c => c.Type == "Permission")))
-            {
-                await roleManager.AddClaimAsync(managerRole, new System.Security.Claims.Claim("Permission", "ReviewClaims"));
-                await roleManager.AddClaimAsync(managerRole, new System.Security.Claims.Claim("Permission", "ApproveClaims"));
-                await roleManager.AddClaimAsync(managerRole, new System.Security.Claims.Claim("Permission", "RejectClaims"));
-                await roleManager.AddClaimAsync(managerRole, new System.Security.Claims.Claim("Permission", "ViewAllClaims"));
-                await roleManager.AddClaimAsync(managerRole, new System.Security.Claims.Claim("MaxApprovalAmount", "20000"));
-            }
-
-            // Add default test users if they don't exist
-            var testUsers = new[]
-            {
-                new { Email = "lecturer@test.com", Role = "Lecturer", Department = "Computer Science" },
-                new { Email = "coordinator@test.com", Role = "ProgrammeCoordinator", Department = "Information Technology" },
-                new { Email = "manager@test.com", Role = "AcademicManager", Department = "Academic Affairs" }
+                (Email: "lecturer@test.com", Role: "Lecturer", First: "Demo", Last: "Lecturer", Department: "Computer Science", Type: UserType.Lecturer),
+                (Email: "coordinator@test.com", Role: "ProgrammeCoordinator", First: "Demo", Last: "Coordinator", Department: "Information Technology", Type: UserType.HR),
+                (Email: "manager@test.com", Role: "AcademicManager", First: "Demo", Last: "Manager", Department: "Academic Affairs", Type: UserType.HR)
             };
 
-            foreach (var user in testUsers)
+            foreach (var demo in demoUsers)
             {
-                var existingUser = await userManager.FindByEmailAsync(user.Email);
-                if (existingUser == null)
+                if (await userManager.FindByEmailAsync(demo.Email) != null)
+                    continue;
+
+                var user = new ApplicationUser
                 {
-                    var newUser = new ApplicationUser
-                    {
-                        UserName = user.Email,
-                        Email = user.Email,
-                        EmailConfirmed = true,
-                        Department = user.Department,
-                        FirstName = user.Role.Replace("Programme", "").Replace("Academic", ""),
-                        LastName = "User",
-                        Name = $"{user.Role.Replace("Programme", "").Replace("Academic", "")} User"
-                    };
+                    UserName = demo.Email,
+                    Email = demo.Email,
+                    EmailConfirmed = true,
+                    FirstName = demo.First,
+                    LastName = demo.Last,
+                    Name = $"{demo.First} {demo.Last}",
+                    Department = demo.Department,
+                    Role = demo.Role,
+                    UserType = demo.Type
+                };
 
-                    var result = await userManager.CreateAsync(newUser, "Test@123");
-                    if (result.Succeeded)
-                    {
-                        await userManager.AddToRoleAsync(newUser, user.Role);
-
-                        // Add user-specific claims
-                        await userManager.AddClaimAsync(newUser, new System.Security.Claims.Claim("Email", user.Email));
-                        await userManager.AddClaimAsync(newUser, new System.Security.Claims.Claim("Role", user.Role));
-                        await userManager.AddClaimAsync(newUser, new System.Security.Claims.Claim("Department", user.Department));
-                    }
-                }
+                var result = await userManager.CreateAsync(user, password);
+                if (result.Succeeded)
+                    await userManager.AddToRoleAsync(user, demo.Role);
             }
         }
     }

@@ -6,11 +6,11 @@ namespace CMCS.Models
     {
         [Required]
         [Display(Name = "Email or Username")]
-        public string EmailOrUsername { get; set; }
+        public string EmailOrUsername { get; set; } = string.Empty;
 
         [Required]
         [DataType(DataType.Password)]
-        public string Password { get; set; }
+        public string Password { get; set; } = string.Empty;
 
         [Display(Name = "Remember me?")]
         public bool RememberMe { get; set; }

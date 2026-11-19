@@ -25,7 +25,7 @@ namespace CMCS.Services
                 .ToListAsync();
         }
 
-        public async Task<Claim> GetClaimByIdAsync(int id)
+        public async Task<Claim?> GetClaimByIdAsync(int id)
         {
             return await _context.Claims
                 .Include(c => c.User)

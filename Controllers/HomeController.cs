@@ -15,8 +15,7 @@ public class HomeController : Controller
 
     public IActionResult Index()
     {
-        _logger.LogInformation($"User authenticated: {User.Identity.IsAuthenticated}");
-        ViewData["Title"] = "Home Page";
+                ViewData["Title"] = "Home Page";
         return View();
     }
 

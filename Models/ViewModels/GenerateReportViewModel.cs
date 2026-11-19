@@ -20,7 +20,7 @@ namespace CMCS.Models
         [Required(ErrorMessage = "Please select a report type.")]
         [Display(Name = "Report Type")]
         [RegularExpression("^(Summary|Detailed|Department)$", ErrorMessage = "Invalid report type selected.")]
-        public string ReportType { get; set; }
+        public string ReportType { get; set; } = string.Empty;
 
         public List<SelectListItem> ReportTypes { get; set; } = new List<SelectListItem>
         {

@@ -1,10 +1,7 @@
 @using CMCS.Models.Enums
 @model CMCS.Models.ViewModels.DashboardViewModel
-@inject Microsoft.AspNetCore.Antiforgery.IAntiforgery Antiforgery
 @{
     ViewData["Title"] = "Dashboard";
-
-    var antiforgeryToken = Antiforgery.GetAndStoreTokens(Context).RequestToken;
 }
 
 <div class="container mx-auto px-4 py-8">
@@ -115,35 +112,3 @@
     }
 </div>
 
-@section Scripts {
-    <script>
-        function updateClaimStatus(id, status) {
-            fetch('@Url.Action("UpdateClaimStatus", "Claim")', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                    'RequestVerificationToken': '@antiforgeryToken'
-                },
-                body: `id=${id}&status=${status}`
-            })
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error('Network response was not ok');
-                    }
-                    return response.json();
-                })
-                .then(result => {
-                    if (result.success) {
-                        alert(result.message);
-                        location.reload();
-                    } else {
-                        alert('Error updating claim status: ' + result.message);
-                    }
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    alert('An error occurred while updating the claim status');
-                });
-        }
-    </script>
-}

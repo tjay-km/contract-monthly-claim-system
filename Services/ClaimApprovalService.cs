@@ -1,128 +1,116 @@
 using System;
 using System.Threading.Tasks;
 using CMCS.Models;
-using Microsoft.AspNetCore.Identity;
-using ClaimModel = CMCS.Models.Claim;
 using CMCS.Models.Enums;
+using ClaimModel = CMCS.Models.Claim;
 
 namespace CMCS.Services
 {
-    public interface IClaimApprovalService
+    /// <summary>Outcome of an approve or reject request.</summary>
+    public record ReviewResult(bool Succeeded, string Message)
     {
-        Task<bool> ProcessClaimAsync(ClaimModel claim, string reviewerId);
-        Task<bool> ApproveClaimAsync(int claimId, string reviewerId);
-        Task<bool> RejectClaimAsync(int claimId, string reviewerId, string rejectionReason);
+        public static ReviewResult Success(string message) => new(true, message);
+        public static ReviewResult Failure(string message) => new(false, message);
     }
 
+    public interface IClaimApprovalService
+    {
+        /// <summary>Approved when auto-approval is on and the amount is within its limit, otherwise Pending.</summary>
+        Task<ClaimStatus> GetInitialStatusAsync(decimal totalAmount);
+
+        Task<ReviewResult> ApproveAsync(int claimId, ApplicationUser reviewer, bool isAcademicManager);
+
+        Task<ReviewResult> RejectAsync(int claimId, ApplicationUser reviewer, string reason);
+    }
+
+    /// <summary>
+    /// The single place where claims change status, so the approval rules and the audit trail
+    /// apply no matter which page the reviewer uses.
+    /// </summary>
     public class ClaimApprovalService : IClaimApprovalService
     {
-        private readonly IClaimValidationService _validationService;
+        /// <summary>Programme coordinators can approve claims up to this amount; larger claims need an academic manager.</summary>
+        public const decimal CoordinatorApprovalLimit = 5000m;
+
         private readonly IClaimsService _claimsService;
-        private readonly UserManager<ApplicationUser> _userManager;
+        private readonly IAutoApprovalConfigService _autoApprovalConfig;
         private readonly IClaimAuditService _auditService;
-        private readonly IClaimReportService _reportService;
 
         public ClaimApprovalService(
-            IClaimValidationService validationService,
             IClaimsService claimsService,
-            UserManager<ApplicationUser> userManager,
-            IClaimAuditService auditService,
-            IClaimReportService reportService)
+            IAutoApprovalConfigService autoApprovalConfig,
+            IClaimAuditService auditService)
         {
-            _validationService = validationService;
             _claimsService = claimsService;
-            _userManager = userManager;
+            _autoApprovalConfig = autoApprovalConfig;
             _auditService = auditService;
-            _reportService = reportService;
         }
 
-        public async Task<bool> ProcessClaimAsync(ClaimModel claim, string reviewerId)
+        public static bool IsPending(ClaimStatus status) =>
+            status is ClaimStatus.Pending or ClaimStatus.PendingReview or ClaimStatus.PendingAcademicManagerApproval;
+
+        public async Task<ClaimStatus> GetInitialStatusAsync(decimal totalAmount) =>
+            await _autoApprovalConfig.IsEligibleForAutoApprovalAsync(totalAmount)
+                ? ClaimStatus.Approved
+                : ClaimStatus.Pending;
+
+        public async Task<ReviewResult> ApproveAsync(int claimId, ApplicationUser reviewer, bool isAcademicManager)
         {
-            // First, validate the claim
-            var (isValid, validationMessages) = await _validationService.ValidateClaimAsync(claim);
-            if (!isValid)
-            {
-                return false;
-            }
+            var (claim, error) = await LoadPendingClaimAsync(claimId);
+            if (claim == null)
+                return ReviewResult.Failure(error);
 
-            // Check if claim has already been reviewed
-            if (claim.Status == ClaimStatus.Approved || claim.Status == ClaimStatus.Rejected)
-            {
-                throw new InvalidOperationException("Claim has already been processed.");
-            }
-
-            // Get reviewer's role
-            var reviewer = await _userManager.FindByIdAsync(reviewerId);
-            if (reviewer == null)
-            {
-                return false;
-            }
-
-            var roles = await _userManager.GetRolesAsync(reviewer);
-
-            // Get auto-approval configuration
-            var config = await _reportService.GetAutoApprovalConfigAsync();
-
-            // Check if auto-approval is enabled and claim amount is within limit
-            if (config.EnableAutoApproval && 
-                claim.TotalAmount <= config.MaxAutoApprovalAmount && 
-                (roles.Contains("ProgrammeCoordinator") || roles.Contains("AcademicManager")))
-            {
-                claim.Status = ClaimStatus.Approved;
-                claim.DateReviewed = DateTime.Now;
-                claim.ReviewerId = reviewerId;
-                await _claimsService.UpdateClaimAsync(claim);
-
-                // Log the auto-approval
-                await _auditService.LogAuditAsync(
-                    claim.Id,
-                    "Auto-Approved",
-                    reviewer.UserName,
-                    $"Claim auto-approved. Amount: R{claim.TotalAmount:N2}");
-
-                return true;
-            }
-            // Claims over R5000 need Academic Manager approval
-            else if (claim.TotalAmount > 5000)
-            {
-                claim.Status = ClaimStatus.PendingAcademicManagerApproval;
-                await _claimsService.UpdateClaimAsync(claim);
-            }
-            else
-            {
-                // Set to pending for manual review
-                claim.Status = ClaimStatus.PendingReview;
-                await _claimsService.UpdateClaimAsync(claim);
-            }
-
-            return true;
-        }
-
-        public async Task<bool> ApproveClaimAsync(int claimId, string reviewerId)
-        {
-            var claim = await _claimsService.GetClaimByIdAsync(claimId);
-            if (claim == null) return false;
+            if (!isAcademicManager && claim.TotalAmount > CoordinatorApprovalLimit)
+                return ReviewResult.Failure(
+                    $"Claims over R{CoordinatorApprovalLimit:N0} must be approved by an Academic Manager.");
 
             claim.Status = ClaimStatus.Approved;
-            claim.DateReviewed = DateTime.Now;
-            claim.ReviewerId = reviewerId;
-
+            claim.ApprovalComments = "Approved by reviewer";
+            MarkReviewed(claim, reviewer);
             await _claimsService.UpdateClaimAsync(claim);
-            return true;
+
+            await _auditService.LogAuditAsync(claim.Id, "Approved", ReviewerName(reviewer),
+                $"Approved claim of R{claim.TotalAmount:N2}");
+            return ReviewResult.Success($"Claim {claim.Id} approved.");
         }
 
-        public async Task<bool> RejectClaimAsync(int claimId, string reviewerId, string rejectionReason)
+        public async Task<ReviewResult> RejectAsync(int claimId, ApplicationUser reviewer, string reason)
         {
-            var claim = await _claimsService.GetClaimByIdAsync(claimId);
-            if (claim == null) return false;
+            if (string.IsNullOrWhiteSpace(reason))
+                return ReviewResult.Failure("A rejection reason is required.");
+
+            var (claim, error) = await LoadPendingClaimAsync(claimId);
+            if (claim == null)
+                return ReviewResult.Failure(error);
 
             claim.Status = ClaimStatus.Rejected;
-            claim.DateReviewed = DateTime.Now;
-            claim.ReviewerId = reviewerId;
-            claim.RejectionReason = rejectionReason;
-
+            claim.RejectionReason = reason.Trim();
+            MarkReviewed(claim, reviewer);
             await _claimsService.UpdateClaimAsync(claim);
-            return true;
+
+            await _auditService.LogAuditAsync(claim.Id, "Rejected", ReviewerName(reviewer),
+                $"Rejected claim of R{claim.TotalAmount:N2}: {claim.RejectionReason}");
+            return ReviewResult.Success($"Claim {claim.Id} rejected.");
         }
+
+        private async Task<(ClaimModel? Claim, string Error)> LoadPendingClaimAsync(int claimId)
+        {
+            var claim = await _claimsService.GetClaimByIdAsync(claimId);
+            if (claim == null)
+                return (null, "Claim not found.");
+            if (!IsPending(claim.Status))
+                return (null, "This claim has already been reviewed.");
+            return (claim, string.Empty);
+        }
+
+        private static void MarkReviewed(ClaimModel claim, ApplicationUser reviewer)
+        {
+            claim.ReviewerId = reviewer.Id;
+            claim.ReviewedBy = ReviewerName(reviewer);
+            claim.DateReviewed = DateTime.Now;
+        }
+
+        private static string ReviewerName(ApplicationUser reviewer) =>
+            string.IsNullOrWhiteSpace(reviewer.Name) ? reviewer.UserName ?? reviewer.Id : reviewer.Name;
     }
 }
